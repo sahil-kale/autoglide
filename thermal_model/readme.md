@@ -7,6 +7,17 @@ w_{\text{pred}}(r) \;=\; \big(w_{th} + V_e\big) \;
     \;-\; V_e
 \]
 
+## Core Centering Model
+The thermal core is assumed to drift linearly with altitude, with drift rates \(k_x\) and \(k_y\) in the x and y directions respectively. The core center at altitude \(h\) is given by:
+\[
+x_c(h) = x_{th} + k_x \cdot h
+\]
+\[
+y_c(h) = y_{th} + k_y \cdot h
+\]
+
+This simple model assumes a constant wind shear, is definitely not high fidelity, but it does capture the core idea of a linearly-drifting thermal core with altitude.
+
 ## Variable Nomenclature
 
 - \(w_{\text{pred}}(r)\) = predicted vertical velocity (m/s) at distance \(r\) from the thermal center  
@@ -15,5 +26,6 @@ w_{\text{pred}}(r) \;=\; \big(w_{th} + V_e\big) \;
 - \(V_e\) = environmental sink velocity (m/s, constant)  
 - \(r = \sqrt{(x - x_c)^2 + (y - y_c)^2}\) = radial distance to thermal center  
 
-## Example 3D updraft plot
+## Model Plots
 ![3D Thermal Plot](3d_thermal_uplift_field.png)
+![3D Thermal Core Drift Plot](3d_thermal_core_drift.png)
