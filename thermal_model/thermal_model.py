@@ -39,7 +39,7 @@ class ThermalModel:
 
 if __name__ == "__main__":
     # Example with slight tilt: 0.03 m drift in x and -0.02 m in y per meter climb
-    thermal = ThermalModel(w_max=5.0, r_th=50.0, x_th=0.0, y_th=0.0, V_e=1.0, kx=0.03, ky=-0.02, core_center_random_noise_std=2.0)
+    thermal = ThermalModel(w_max=5.0, r_th=50.0, x_th=0.0, y_th=0.0, V_e=1.0, kx=0.03, ky=-0.02, core_center_random_noise_std=1.5)
 
     # grid
     x = np.linspace(-150, 150, 100)

@@ -12,11 +12,11 @@ The thermal core is assumed to drift linearly with altitude, with drift rates $k
 The core center at altitude $h$ is given by:
 
 $$
-x_c(h) = x_{th} + k_x \cdot h
+x_c(h) = x_{th} + k_x \cdot h + \eta_x(h)
 $$
 
 $$
-y_c(h) = y_{th} + k_y \cdot h
+y_c(h) = y_{th} + k_y \cdot h + \eta_y(h)
 $$
 
 This simple model assumes a constant wind shear. It’s definitely not high fidelity, but it does capture the core idea of a linearly drifting thermal core with altitude.
