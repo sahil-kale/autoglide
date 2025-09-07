@@ -53,6 +53,7 @@ def plot_polar(speeds, sink_rates, V_star, s_min, k_v):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--polar-file", type=str, required=True, help="Path to the polar JSON file.")
+    parser.add_argument("--plot", action="store_true", help="Whether to plot the polar curve.")
     args = parser.parse_args()
 
     with open(args.polar_file, 'r') as f:
@@ -62,4 +63,5 @@ if __name__ == "__main__":
     V_star, s_min = find_minsink(speeds, sink_rates)
     k_v = fit_coefficients(speeds, sink_rates, V_star, s_min)
     click.echo(f"Fitted coefficients:\nV* = {V_star:.2f} m/s\ns_min = {s_min:.2f} m/s\nk_v = {k_v:.4f} (m/s)/(m/s)^2")
-    plot_polar(speeds, sink_rates, V_star, s_min, k_v)
+    if args.plot:
+        plot_polar(speeds, sink_rates, V_star, s_min, k_v)
