@@ -1,0 +1,18 @@
+# Thermal Model
+The thermal model is based on an equation I found in a NASA paper that attempts to solve a similar problem of [autonomous soaring for improved endurance of a small uninhabited air vehicle](https://ntrs.nasa.gov/api/citations/20050041655/downloads/20050041655.pdf). Equation 18 in the paper is reproduced below. Note this equation seems to have came from another paper from 1998, but I couldn't find that paper.
+
+\[
+w_{\text{pred}}(r) \;=\; \big(w_{th} + V_e\big) \;
+    \exp\!\left[ -\left(\frac{r}{\max(r_{th},\,1)}\right)^2 \right]
+    \;-\; V_e
+\]
+
+## Variable Nomenclature
+
+- \(w_{\text{pred}}(r)\) = predicted vertical velocity (m/s) at distance \(r\) from the thermal center  
+- \(w_{th}\) = maximum thermal updraft velocity (m/s)  
+- \(r_{th}\) = characteristic thermal radius (m)  
+- \(V_e\) = environmental sink velocity (m/s, constant)  
+- \(r = \sqrt{(x - x_c)^2 + (y - y_c)^2}\) = radial distance to thermal center  
+
+## Example 2D and 3D plots
