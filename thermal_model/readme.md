@@ -8,7 +8,8 @@ w_{\text{pred}}(r) = \big(w_{th} + V_e\big) \;
 $$
 
 ## Core Centering Model
-The thermal core is assumed to drift linearly with altitude, with drift rates $k_x$ and $k_y$ in the x and y directions respectively. The core center at altitude $h$ is given by:
+The thermal core is assumed to drift linearly with altitude, with drift rates $k_x$ and $k_y$ in the x and y directions respectively. Additionally, a small random noise component is added to the core position at each altitude with zero mean.
+The core center at altitude $h$ is given by:
 
 $$
 x_c(h) = x_{th} + k_x \cdot h
