@@ -15,4 +15,5 @@ w_{\text{pred}}(r) \;=\; \big(w_{th} + V_e\big) \;
 - \(V_e\) = environmental sink velocity (m/s, constant)  
 - \(r = \sqrt{(x - x_c)^2 + (y - y_c)^2}\) = radial distance to thermal center  
 
-## Example 2D and 3D plots
+## Example 3D updraft plot
+![3D Thermal Plot](3d_thermal_uplift_field.png)
