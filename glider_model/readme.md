@@ -20,6 +20,9 @@ For simplicity, a quadratic model fitted around the min sink (defined as \(s_{mi
 \[
     s_0(V) = s_{min} + k_v (V - V^*)^2
 \]
+
+See `polar_computation/eval_polar.py` for a script that fits this model to polar curve data from an ASK21.
+
 Finally, this sink rate is adjusted for the roll angle \(\phi\) as there is less lift generated when the glider is banked. See the figure below for more details ([source](https://aviation.stackexchange.com/questions/19030/what-types-of-maneuvers-increase-the-load-factor-on-the-aircraft)). ![Effect of Bank Angle on Glide Ratio](flight_lift_vector.png).  
 For the purposes of this model, it's assumed that the sink rate increases proportionally to the load factor (\(n = \frac{1}{\cos(\phi)}\)) to the power of a tunable parameter \(\alpha_n\). There's a more complex relationship here, but keeping it simple since I'm not an aerodynamics expert.
 \[
@@ -27,15 +30,20 @@ For the purposes of this model, it's assumed that the sink rate increases propor
 \]
 
 ## Glider Kinematics Model
+### Position Kinematics
 \[
 \dot{x} = V \cos(\psi) + W_x
 \]
 \[
 \dot{y} = V \sin(\psi) + W_y
 \]
+
+### Turning Rate
+The turning rate is derived from the coordinated turn equation, assuming it's perfect.
 \[
 \dot{\psi} = \frac{g}{V} \tan(\phi)
 \]
+### Altitude Kinematics
 \[
 \dot{h} = w(x, y) - s(V, \phi)
 \]
