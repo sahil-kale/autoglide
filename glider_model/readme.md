@@ -42,7 +42,7 @@ $$
 $$
 
 ### Turning Rate
-The turning rate is derived from the coordinated turn equation, assuming it's perfect.
+The turning rate is derived from the coordinated turn equation, assuming it's perfect. See [this article, equation 3](https://www.spinningwing.com/the-helicopter/turns) for more details.
 
 $$
 \dot{\psi} = \frac{g}{V} \tan(\phi)
