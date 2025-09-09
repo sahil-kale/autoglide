@@ -109,9 +109,9 @@ class SingleThermalGliderSimulator:
         self.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
         # --- Estimator ---
-        initial_cov = np.eye(4) * 999
-        process_noise = np.eye(4) * 1
-        measurement_noise = np.eye(1) * 0.05
+        initial_cov = np.eye(4) * 10
+        process_noise = np.eye(4) * 5
+        measurement_noise = np.eye(1) * 0.00001
         self.estimator = ThermalEstimator(initial_cov, process_noise, measurement_noise)
         self.cov_mags = [np.linalg.norm(initial_cov)]
 
@@ -326,7 +326,7 @@ def main() -> None:
     thermal = ThermalModel(
         w_max=7.0,
         r_th=70.0,
-        x_th=500.0,
+        x_th=100.0,
         y_th=0.0,
         V_e=1.0,
         kx=0.03,

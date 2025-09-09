@@ -5,7 +5,7 @@ import sympy as sp
 class ThermalEstimator:
     def __init__(self, initial_covariance, process_noise, measurement_noise):
         # State: [x_c, y_c, W_0, R_th]^T
-        self.state = np.array([0.0, 0.0, 0.0, 1.0], dtype=float).reshape(-1, 1)  # (4,1)
+        self.state = np.array([0.0, 0.0, 1.0, 10.0], dtype=float).reshape(-1, 1)  # (4,1)
 
         # Noises & covariance
         self.covariance = np.array(initial_covariance, dtype=float)
