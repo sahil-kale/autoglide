@@ -45,13 +45,17 @@ mpl.rcParams["keymap.zoom"] = []       # 'o', etc.
 SIM_DT: float = 0.1
 ROLL_STEP_RAD: float = np.deg2rad(5.0)
 VEL_STEP_MS: float = 1.0
-ROLL_LIMIT_RAD: float = np.pi / 4
-V_MIN: float = 5.0
+ROLL_LIMIT_RAD: float = np.deg2rad(60.0)
+V_MIN: float = 20.0
 V_MAX: float = 50.0
 PLOT_SPAN_XY: float = 100.0
 PLOT_SPAN_Z: float = 50.0
 DRAW_EVERY_STEPS: int = 2
 AIRPLANE_SCALE: float = 6.0
+
+# --- Oscilloscope plot settings ---
+SCOPE_WINDOW_SEC: float = 30.0  # seconds to show in scope plots
+SCOPE_UPDATE_EVERY: int = 10    # update scope plots every N frames
 
 
 @dataclass
@@ -79,17 +83,25 @@ class SingleThermalGliderSimulator:
         self.ys = [self.glider.y]
         self.hs = [self.glider.h]
         self.times = [0.0]
-        self.Vs = [self.glider.V]
-        self.phis = [self.glider.phi]
-        self.uplifts = [0.0]
+
+        # Scalable scope data structure: {name: [values]}
+        self.scope_data = {
+            "Altitude (m)": [self.glider.h],
+            "Airspeed (m/s)": [self.glider.V],
+            "Roll (deg)": [np.rad2deg(self.glider.phi)],
+            "Vertical Speed (m/s)": [0.0],
+        }
 
         self.fig = plt.figure(figsize=(16, 8))
         gs = gridspec.GridSpec(4, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1])
         self.ax = self.fig.add_subplot(gs[:, 0], projection="3d")
-        self.ax_alt = self.fig.add_subplot(gs[0, 1])
-        self.ax_vel = self.fig.add_subplot(gs[1, 1])
-        self.ax_roll = self.fig.add_subplot(gs[2, 1])
-        self.ax_uplift = self.fig.add_subplot(gs[3, 1])
+        self.scope_axes = []
+        scope_labels = list(self.scope_data.keys())
+        for i in range(len(scope_labels)):
+            ax = self.fig.add_subplot(gs[i, 1])
+            ax.set_ylabel(scope_labels[i])
+            self.scope_axes.append(ax)
+        self.scope_axes[-1].set_xlabel("Time (s)")
         self.fig.tight_layout()
         self.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
@@ -148,9 +160,10 @@ class SingleThermalGliderSimulator:
 
         # Store for time-domain plots
         self.times.append(self._time)
-        self.Vs.append(self.glider.V)
-        self.phis.append(np.rad2deg(self.glider.phi))
-        self.uplifts.append(uplift)
+        self.scope_data["Altitude (m)"].append(self.glider.h)
+        self.scope_data["Airspeed (m/s)"].append(self.glider.V)
+        self.scope_data["Roll (deg)"].append(np.rad2deg(self.glider.phi))
+        self.scope_data["Vertical Speed (m/s)"].append(uplift)
 
     # --- Drawing ---
 
@@ -240,19 +253,17 @@ class SingleThermalGliderSimulator:
         self.ax.set_zlim(self.glider.h - PLOT_SPAN_Z, self.glider.h + PLOT_SPAN_Z)
 
         if update_oscopes:
-            self.ax_alt.clear()
-            self.ax_vel.clear()
-            self.ax_roll.clear()
-            self.ax_uplift.clear()
-            self.ax_alt.plot(self.times, self.hs, color='g')
-            self.ax_alt.set_ylabel("Altitude (m)")
-            self.ax_vel.plot(self.times, self.Vs, color='b')
-            self.ax_vel.set_ylabel("Airspeed (m/s)")
-            self.ax_roll.plot(self.times, self.phis, color='r')
-            self.ax_roll.set_ylabel("Roll (deg)")
-            self.ax_uplift.plot(self.times, self.uplifts, color='m')
-            self.ax_uplift.set_ylabel("Thermal Uplift (m/s)")
-            self.ax_uplift.set_xlabel("Time (s)")
+            # Only plot last SCOPE_WINDOW_SEC seconds
+            t_window = SCOPE_WINDOW_SEC
+            t_now = self._time
+            # Find indices for window
+            times_arr = np.array(self.times)
+            idx_start = np.searchsorted(times_arr, t_now - t_window)
+            for ax, (label, data) in zip(self.scope_axes, self.scope_data.items()):
+                ax.clear()
+                ax.plot(times_arr[idx_start:], np.array(data)[idx_start:])
+                ax.set_ylabel(label)
+            self.scope_axes[-1].set_xlabel("Time (s)")
 
         plt.pause(0.001)
 
@@ -284,8 +295,8 @@ def main() -> None:
 
     # Example thermal model parameters (can be tuned or loaded from config)
     thermal = ThermalModel(
-        w_max=5.0,
-        r_th=50.0,
+        w_max=7.0,
+        r_th=70.0,
         x_th=500.0,
         y_th=0.0,
         V_e=1.0,
