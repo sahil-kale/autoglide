@@ -34,6 +34,7 @@ from glider_model.model import (
     GliderOpenLoopKinematicModel,
 )
 from thermal_model.thermal_model import ThermalModel
+from estimator.estimator import ThermalEstimator
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
 mpl.rcParams["keymap.save"] = []       # 's'
@@ -52,6 +53,8 @@ PLOT_SPAN_XY: float = 100.0
 PLOT_SPAN_Z: float = 50.0
 DRAW_EVERY_STEPS: int = 2
 AIRPLANE_SCALE: float = 6.0
+# --- Estimator/Plotting ---
+PLOT_ESTIMATED_THERMAL_PARAMS = True
 
 # --- Oscilloscope plot settings ---
 SCOPE_WINDOW_SEC: float = 30.0  # seconds to show in scope plots
@@ -89,14 +92,14 @@ class SingleThermalGliderSimulator:
             "Altitude (m)": [self.glider.h],
             "Airspeed (m/s)": [self.glider.V],
             "Roll (deg)": [np.rad2deg(self.glider.phi)],
-            "Vertical Speed (m/s)": [0.0],
+            "Uplift Speed (m/s)": [0.0],
         }
 
         self.fig = plt.figure(figsize=(16, 8))
-        gs = gridspec.GridSpec(4, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1])
+        gs = gridspec.GridSpec(5, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1, 1])
         self.ax = self.fig.add_subplot(gs[:, 0], projection="3d")
         self.scope_axes = []
-        scope_labels = list(self.scope_data.keys())
+        scope_labels = list(self.scope_data.keys()) + ["Covariance Magnitude"]
         for i in range(len(scope_labels)):
             ax = self.fig.add_subplot(gs[i, 1])
             ax.set_ylabel(scope_labels[i])
@@ -104,6 +107,13 @@ class SingleThermalGliderSimulator:
         self.scope_axes[-1].set_xlabel("Time (s)")
         self.fig.tight_layout()
         self.fig.canvas.mpl_connect("key_press_event", self._on_key)
+
+        # --- Estimator ---
+        initial_cov = np.eye(4) * 999
+        process_noise = np.eye(4) * 1
+        measurement_noise = np.eye(1) * 0.05
+        self.estimator = ThermalEstimator(initial_cov, process_noise, measurement_noise)
+        self.cov_mags = [np.linalg.norm(initial_cov)]
 
         self._step_count = 0
         self._time = 0.0
@@ -138,16 +148,23 @@ class SingleThermalGliderSimulator:
     # --- Sim loop ---
 
     def step(self) -> None:
+        # --- Estimator step (open-loop, before glider step) ---
+        self.estimator.predict()       
+
+        # --- Glider step ---
         self.control.phi = self.ctrl_state.roll_rad
         self.control.V = self.ctrl_state.airspeed_ms
 
-        # Use thermal model if available
         if self.thermal is not None:
             uplift = self.thermal.get_thermal_uplift(self.glider.x, self.glider.y, self.glider.h)
-            self.disturbance.w = uplift
         else:
             uplift = 0.0
-            self.disturbance.w = 0.0
+
+        self.disturbance.w = uplift
+
+        # Use glider position as measurement location, and measured uplift as measurement
+        control_input = (self.glider.x, self.glider.y)
+        self.estimator.update(uplift, control_input)
 
         self.glider.step(self.dt, self.control, self.disturbance)
 
@@ -163,7 +180,9 @@ class SingleThermalGliderSimulator:
         self.scope_data["Altitude (m)"].append(self.glider.h)
         self.scope_data["Airspeed (m/s)"].append(self.glider.V)
         self.scope_data["Roll (deg)"].append(np.rad2deg(self.glider.phi))
-        self.scope_data["Vertical Speed (m/s)"].append(uplift)
+        self.scope_data["Uplift Speed (m/s)"].append(uplift)
+        cov_mag = np.linalg.norm(self.estimator.covariance)
+        self.cov_mags.append(cov_mag)
 
     # --- Drawing ---
 
@@ -232,6 +251,16 @@ class SingleThermalGliderSimulator:
                 drift_y.append(yc)
             self.ax.plot(drift_x, drift_y, hs_drift, 'b:', linewidth=1, label="Core Drift Path")
 
+        # Plot estimated thermal center and radius
+        if PLOT_ESTIMATED_THERMAL_PARAMS:
+            est_xc, est_yc, est_W0, est_Rth = self.estimator.state
+            theta = np.linspace(0, 2 * np.pi, 100)
+            est_ring_x = est_xc + est_Rth * np.cos(theta)
+            est_ring_y = est_yc + est_Rth * np.sin(theta)
+            est_ring_z = np.full_like(theta, self.glider.h)
+            self.ax.plot(est_ring_x, est_ring_y, est_ring_z, 'r--', linewidth=2, label="Estimated Core")
+            self.ax.scatter(est_xc, est_yc, self.glider.h, color='red', marker='x', s=80, label="Est Center")
+
         # Airplane glyph at current pose
         self._draw_airplane(
             x=self.glider.x,
@@ -256,10 +285,10 @@ class SingleThermalGliderSimulator:
             # Only plot last SCOPE_WINDOW_SEC seconds
             t_window = SCOPE_WINDOW_SEC
             t_now = self._time
-            # Find indices for window
             times_arr = np.array(self.times)
             idx_start = np.searchsorted(times_arr, t_now - t_window)
-            for ax, (label, data) in zip(self.scope_axes, self.scope_data.items()):
+            scope_items = list(self.scope_data.items()) + [("Covariance Magnitude", self.cov_mags)]
+            for ax, (label, data) in zip(self.scope_axes, scope_items):
                 ax.clear()
                 ax.plot(times_arr[idx_start:], np.array(data)[idx_start:])
                 ax.set_ylabel(label)
