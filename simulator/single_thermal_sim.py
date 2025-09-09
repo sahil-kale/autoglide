@@ -110,7 +110,7 @@ class SingleThermalGliderSimulator:
 
         # --- Estimator ---
         initial_cov = np.eye(4) * 10
-        process_noise = np.eye(4) * 50
+        process_noise = np.eye(4) * 200
         measurement_noise = np.eye(1) * 0.000001
         self.estimator = ThermalEstimator(initial_cov, process_noise, measurement_noise)
         self.cov_mags = [np.linalg.norm(initial_cov)]
