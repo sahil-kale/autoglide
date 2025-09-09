@@ -9,26 +9,31 @@ Single Thermal Glider Simulator (interactive)
 
 from __future__ import annotations
 
+
 import os
 import sys
+import json
 from dataclasses import dataclass
 from typing import List
 
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (registers 3D projection)
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
 # Ensure package root is on path (one level up from this file)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from glider_model.model import (  # noqa: E402
+
+from glider_model.model import (
     GliderModelParams,
     GliderKinematicModelControl,
     GliderKinematicModelDisturbance,
     GliderOpenLoopKinematicModel,
 )
+from thermal_model.thermal_model import ThermalModel
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
 mpl.rcParams["keymap.save"] = []       # 's'
@@ -40,7 +45,7 @@ mpl.rcParams["keymap.zoom"] = []       # 'o', etc.
 SIM_DT: float = 0.1
 ROLL_STEP_RAD: float = np.deg2rad(5.0)
 VEL_STEP_MS: float = 1.0
-ROLL_LIMIT_RAD: float = np.pi / 2
+ROLL_LIMIT_RAD: float = np.pi / 4
 V_MIN: float = 5.0
 V_MAX: float = 50.0
 PLOT_SPAN_XY: float = 100.0
@@ -55,8 +60,9 @@ class ControlState:
     airspeed_ms: float
 
 
+
 class SingleThermalGliderSimulator:
-    def __init__(self, params: GliderModelParams, dt: float = SIM_DT) -> None:
+    def __init__(self, params: GliderModelParams, dt: float = SIM_DT, thermal: ThermalModel = None) -> None:
         self.params = params
         self.dt = dt
 
@@ -69,17 +75,28 @@ class SingleThermalGliderSimulator:
         )
         self.ctrl_state = ControlState(roll_rad=0.0, airspeed_ms=params.V_star)
 
-        self.xs: List[float] = [self.glider.x]
-        self.ys: List[float] = [self.glider.y]
-        self.hs: List[float] = [self.glider.h]
+        self.xs = [self.glider.x]
+        self.ys = [self.glider.y]
+        self.hs = [self.glider.h]
+        self.times = [0.0]
+        self.Vs = [self.glider.V]
+        self.phis = [self.glider.phi]
+        self.uplifts = [0.0]
 
-        self.fig = plt.figure(figsize=(10, 7))
-        self.ax = self.fig.add_subplot(111, projection="3d")
-        plt.subplots_adjust(bottom=0.2)
+        self.fig = plt.figure(figsize=(16, 8))
+        gs = gridspec.GridSpec(4, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1])
+        self.ax = self.fig.add_subplot(gs[:, 0], projection="3d")
+        self.ax_alt = self.fig.add_subplot(gs[0, 1])
+        self.ax_vel = self.fig.add_subplot(gs[1, 1])
+        self.ax_roll = self.fig.add_subplot(gs[2, 1])
+        self.ax_uplift = self.fig.add_subplot(gs[3, 1])
+        self.fig.tight_layout()
         self.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
         self._step_count = 0
         self._time = 0.0
+
+        self.thermal = thermal
 
     # --- Event handling ---
 
@@ -112,8 +129,13 @@ class SingleThermalGliderSimulator:
         self.control.phi = self.ctrl_state.roll_rad
         self.control.V = self.ctrl_state.airspeed_ms
 
-        # Hook for thermal model: set disturbance.w = thermal.get_thermal_uplift(...)
-        self.disturbance.w = 0.0
+        # Use thermal model if available
+        if self.thermal is not None:
+            uplift = self.thermal.get_thermal_uplift(self.glider.x, self.glider.y, self.glider.h)
+            self.disturbance.w = uplift
+        else:
+            uplift = 0.0
+            self.disturbance.w = 0.0
 
         self.glider.step(self.dt, self.control, self.disturbance)
 
@@ -123,6 +145,12 @@ class SingleThermalGliderSimulator:
 
         self._time += self.dt
         self._step_count += 1
+
+        # Store for time-domain plots
+        self.times.append(self._time)
+        self.Vs.append(self.glider.V)
+        self.phis.append(np.rad2deg(self.glider.phi))
+        self.uplifts.append(uplift)
 
     # --- Drawing ---
 
@@ -166,10 +194,30 @@ class SingleThermalGliderSimulator:
             linewidth=1.2,
         )
 
-    def draw(self) -> None:
+    def draw(self, update_oscopes: bool = True) -> None:
         self.ax.clear()
 
         self.ax.plot(self.xs, self.ys, self.hs, linewidth=2, label="Path")
+
+        # Draw thermal core ring at current altitude
+        if self.thermal is not None:
+            x_c, y_c = self.thermal.core_center_at_height(self.glider.h)
+            r_th = self.thermal.r_th
+            theta = np.linspace(0, 2 * np.pi, 100)
+            ring_x = x_c + r_th * np.cos(theta)
+            ring_y = y_c + r_th * np.sin(theta)
+            ring_z = np.full_like(theta, self.glider.h)
+            self.ax.plot(ring_x, ring_y, ring_z, 'b--', linewidth=1.5, label="Thermal Core")
+
+            # Optionally, plot core drift path (projected)
+            hs_drift = np.linspace(self.glider.h - 100, self.glider.h + 100, 20)
+            drift_x = []
+            drift_y = []
+            for h in hs_drift:
+                xc, yc = self.thermal.core_center_at_height(h)
+                drift_x.append(xc)
+                drift_y.append(yc)
+            self.ax.plot(drift_x, drift_y, hs_drift, 'b:', linewidth=1, label="Core Drift Path")
 
         # Airplane glyph at current pose
         self._draw_airplane(
@@ -191,29 +239,62 @@ class SingleThermalGliderSimulator:
         self.ax.set_ylim(self.glider.y - PLOT_SPAN_XY, self.glider.y + PLOT_SPAN_XY)
         self.ax.set_zlim(self.glider.h - PLOT_SPAN_Z, self.glider.h + PLOT_SPAN_Z)
 
+        if update_oscopes:
+            self.ax_alt.clear()
+            self.ax_vel.clear()
+            self.ax_roll.clear()
+            self.ax_uplift.clear()
+            self.ax_alt.plot(self.times, self.hs, color='g')
+            self.ax_alt.set_ylabel("Altitude (m)")
+            self.ax_vel.plot(self.times, self.Vs, color='b')
+            self.ax_vel.set_ylabel("Airspeed (m/s)")
+            self.ax_roll.plot(self.times, self.phis, color='r')
+            self.ax_roll.set_ylabel("Roll (deg)")
+            self.ax_uplift.plot(self.times, self.uplifts, color='m')
+            self.ax_uplift.set_ylabel("Thermal Uplift (m/s)")
+            self.ax_uplift.set_xlabel("Time (s)")
+
         plt.pause(0.001)
 
     def run(self) -> None:
         try:
             while True:
                 self.step()
-                if self._step_count % DRAW_EVERY_STEPS == 0:
-                    self.draw()
+                # Always update 3D plot for smoothness
+                self.draw(update_oscopes=(self._step_count % 10 == 0))
         except KeyboardInterrupt:
             pass
 
 
+
 def main() -> None:
+    # Load kinematic model parameters from JSON
+    with open(os.path.join(os.path.dirname(__file__), "../ask21_kinematic_model.json"), "r") as f:
+        model_params = json.load(f)
+
     params = GliderModelParams(
-        V_star=21.11,       # m/s
-        s_min=0.68,         # m/s
-        k_v=0.0031,         # (m/s)/(m/s)^2
-        alpha_n=1.3,        # -
+        V_star=model_params["V_star"],
+        s_min=model_params["s_min"],
+        k_v=model_params["k_v"],
+        alpha_n=model_params["alpha_n"],
         initial_altitude=300.0,  # m
-        roll_tau=1.0,       # s
-        vel_tau=2.0,        # s
+        roll_tau=1.0,            # s
+        vel_tau=2.0,             # s
     )
-    sim = SingleThermalGliderSimulator(params=params, dt=SIM_DT)
+
+    # Example thermal model parameters (can be tuned or loaded from config)
+    thermal = ThermalModel(
+        w_max=5.0,
+        r_th=50.0,
+        x_th=500.0,
+        y_th=0.0,
+        V_e=1.0,
+        kx=0.03,
+        ky=-0.02,
+        core_center_random_noise_std=1.5,
+    )
+
+    sim = SingleThermalGliderSimulator(params=params, dt=SIM_DT, thermal=thermal)
     sim.run()
 
 
