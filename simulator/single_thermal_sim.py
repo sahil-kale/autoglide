@@ -99,7 +99,7 @@ class SingleThermalGliderSimulator:
         gs = gridspec.GridSpec(5, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1, 1])
         self.ax = self.fig.add_subplot(gs[:, 0], projection="3d")
         self.scope_axes = []
-        scope_labels = list(self.scope_data.keys()) + ["Covariance Magnitude"]
+        scope_labels = list(self.scope_data.keys())
         for i in range(len(scope_labels)):
             ax = self.fig.add_subplot(gs[i, 1])
             ax.set_ylabel(scope_labels[i])
@@ -109,15 +109,9 @@ class SingleThermalGliderSimulator:
         self.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
         # --- Estimator ---
-        initial_cov = np.eye(4) * 10
-        process_noise = np.eye(4) * 200
-        measurement_noise = np.eye(1) * 0.000001
-        self.estimator = ThermalEstimator(initial_cov, process_noise, measurement_noise)
-        self.cov_mags = [np.linalg.norm(initial_cov)]
-
+        self.estimator = ThermalEstimator(num_samples_to_buffer=150)
         self._step_count = 0
         self._time = 0.0
-
         self.thermal = thermal
 
     # --- Event handling ---
@@ -148,9 +142,6 @@ class SingleThermalGliderSimulator:
     # --- Sim loop ---
 
     def step(self) -> None:
-        # --- Estimator step (open-loop, before glider step) ---
-        self.estimator.predict()       
-
         # --- Glider step ---
         self.control.phi = self.ctrl_state.roll_rad
         self.control.V = self.ctrl_state.airspeed_ms
@@ -163,8 +154,8 @@ class SingleThermalGliderSimulator:
         self.disturbance.w = uplift
 
         # Use glider position as measurement location, and measured uplift as measurement
-        control_input = (self.glider.x, self.glider.y)
-        self.estimator.update(uplift, control_input)
+        location = np.array([self.glider.x, self.glider.y])
+        self.estimator.step(uplift, location)
 
         self.glider.step(self.dt, self.control, self.disturbance)
 
@@ -181,8 +172,6 @@ class SingleThermalGliderSimulator:
         self.scope_data["Airspeed (m/s)"].append(self.glider.V)
         self.scope_data["Roll (deg)"].append(np.rad2deg(self.glider.phi))
         self.scope_data["Uplift Speed (m/s)"].append(uplift)
-        cov_mag = np.linalg.norm(self.estimator.covariance)
-        self.cov_mags.append(cov_mag)
 
     # --- Drawing ---
 
@@ -253,7 +242,7 @@ class SingleThermalGliderSimulator:
 
         # Plot estimated thermal center and radius
         if PLOT_ESTIMATED_THERMAL_PARAMS:
-            est_xc, est_yc, est_W0, est_Rth = self.estimator.state
+            est_W0, est_Rth, est_xc, est_yc = self.estimator.estimated_params
             theta = np.linspace(0, 2 * np.pi, 100)
             est_ring_x = est_xc + est_Rth * np.cos(theta)
             est_ring_y = est_yc + est_Rth * np.sin(theta)
@@ -287,7 +276,7 @@ class SingleThermalGliderSimulator:
             t_now = self._time
             times_arr = np.array(self.times)
             idx_start = np.searchsorted(times_arr, t_now - t_window)
-            scope_items = list(self.scope_data.items()) + [("Covariance Magnitude", self.cov_mags)]
+            scope_items = list(self.scope_data.items())
             for ax, (label, data) in zip(self.scope_axes, scope_items):
                 ax.clear()
                 ax.plot(times_arr[idx_start:], np.array(data)[idx_start:])
