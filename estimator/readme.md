@@ -1,5 +1,6 @@
 # Thermal Estimator
-The goal of the thermal estimator model is to estimate the thermal core position and strength based on the glider's positions and vertical air velocity measurements. It uses an optimizer to minimize the difference between predicted and measured vertical air velocities.
+The goal of the thermal estimator model is to estimate the thermal core position and strength based on the glider's positions and vertical air velocity measurements. It uses an optimizer to minimize the difference between predicted and measured vertical air velocities. A Gaussian thermal model is assumed. A snippet of the estimator tracking a thermal is shown below:
+![Thermal Estimator Tracking](glider_thermal_estimator.png)
 
 ## Optimization Variables
 The variables optimized over are:
@@ -20,4 +21,4 @@ $$
 Where $(x_i, y_i)$ are the glider's positions and $w_{meas,i}$ are the corresponding measured vertical air velocities (measured from variometer), with N being the total number of variometer measurements used in the estimation.
 
 ## Notes
-Consider optional regularization terms to prevent overfitting, especially if the number of measurements is low. Constraints on the variables (e.g., $W_0 > 0$, $R_{th} > 0$) can also be added to ensure physically meaningful estimates. Further, consider penalizing large changes in estimates between time steps to promote smoother estimates over time.
+Consider optional regularization terms to prevent overfitting, especially if the number of measurements is low.  Further, consider penalizing large changes in estimates between time steps to promote smoother estimates over time.
