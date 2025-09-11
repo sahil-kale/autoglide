@@ -73,7 +73,8 @@ class ThermalEstimator:
         return self.estimated_params
     
     def update_confidence(self):
-        if (len(self.samples) < self.num_samples_to_buffer):
+        # This could be tuned better...
+        if (len(self.samples) < self.num_samples_to_buffer/10):
             return 0.0
         
         errors = []
@@ -83,11 +84,10 @@ class ThermalEstimator:
             errors.append(meas - predicted_w)
         
         errors = np.array(errors)
-        mean_error = np.mean(errors)
         variance_error = np.var(errors)
 
         self.confidence = 1.0 / (1.0 + variance_error)
-        self.lambda_multiplier = self.confidence
+        # self.lambda_multiplier = self.confidence
 
     def get_confidence(self):
         return self.confidence
@@ -108,3 +108,7 @@ class ThermalEstimator:
             (x_c, y_c): Estimated thermal center location.
         """
         return self.estimated_params[2], self.estimated_params[3]
+    
+    def eval_thermal_updraft_with_estimated_params(self, radius_to_center):
+        eval_coordinate = (radius_to_center, 0.0)
+        return self.thermal_model_estimate_updraft(eval_coordinate, (0.0, 0.0), self.estimated_params[0], self.estimated_params[1])
