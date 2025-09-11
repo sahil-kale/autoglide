@@ -93,6 +93,7 @@ class SingleThermalGliderSimulator:
             "Airspeed (m/s)": [self.glider.V],
             "Roll (deg)": [np.rad2deg(self.glider.phi)],
             "Uplift Speed (m/s)": [0.0],
+            "Estimator Confidence": [1.0],
         }
 
         self.fig = plt.figure(figsize=(16, 8))
@@ -172,6 +173,7 @@ class SingleThermalGliderSimulator:
         self.scope_data["Airspeed (m/s)"].append(self.glider.V)
         self.scope_data["Roll (deg)"].append(np.rad2deg(self.glider.phi))
         self.scope_data["Uplift Speed (m/s)"].append(uplift)
+        self.scope_data["Estimator Confidence"].append(self.estimator.get_confidence())
 
     # --- Drawing ---
 
@@ -242,7 +244,8 @@ class SingleThermalGliderSimulator:
 
         # Plot estimated thermal center and radius
         if PLOT_ESTIMATED_THERMAL_PARAMS:
-            est_W0, est_Rth, est_xc, est_yc = self.estimator.estimated_params
+            est_xc, est_yc = self.estimator.get_estimated_thermal_location()
+            est_Rth = self.estimator.get_estimated_thermal_radius()
             theta = np.linspace(0, 2 * np.pi, 100)
             est_ring_x = est_xc + est_Rth * np.cos(theta)
             est_ring_y = est_yc + est_Rth * np.sin(theta)

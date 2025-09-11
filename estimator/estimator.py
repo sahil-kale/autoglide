@@ -16,6 +16,7 @@ class ThermalEstimator:
 
         # Confidence-based scaling - can adapt lambda based on how good the fit is.
         self.lambda_multiplier = 1.0
+        self.confidence = 0.0
 
     def thermal_model_estimate_updraft(self, aircraft_location, thermal_location, W0, Rth):
         x, y = aircraft_location
@@ -85,5 +86,25 @@ class ThermalEstimator:
         mean_error = np.mean(errors)
         variance_error = np.var(errors)
 
-        confidence = 1.0 / (1.0 + variance_error)
-        self.lambda_multiplier = confidence
+        self.confidence = 1.0 / (1.0 + variance_error)
+        self.lambda_multiplier = self.confidence
+
+    def get_confidence(self):
+        return self.confidence
+
+    def get_estimated_thermal_strength(self):
+        return self.estimated_params[0]
+
+    def get_estimated_thermal_radius(self):
+        """
+        Returns:
+            Rth: Estimated thermal radius (radius at which thermal uplift drops to ~37% of core value).
+        """
+        return self.estimated_params[1]
+    
+    def get_estimated_thermal_location(self):
+        """
+        Returns:
+            (x_c, y_c): Estimated thermal center location.
+        """
+        return self.estimated_params[2], self.estimated_params[3]
