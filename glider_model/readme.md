@@ -5,7 +5,7 @@ The glider is assumed to be modeled as a point mass with a fixed kinematic model
 - $x, y$: Position of the glider in a fixed 2D world frame (m)
 - $V$: Airspeed of the glider (m/s)
 - $\psi$: Heading angle of the glider (w.r.t. the x-axis) (rad)
-- $\phi$: Roll angle of the glider (rad)
+- $\phi$: Roll angle of the glider (rad) - positive is left bank
 - $h$: Altitude of the glider (m)
 - $W_x, W_y$: Wind speed in the x and y directions (m/s)
 
