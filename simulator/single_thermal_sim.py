@@ -38,10 +38,10 @@ from estimator.estimator import ThermalEstimator
 from utils.location import WorldFrameCoordinate
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
-mpl.rcParams["keymap.save"] = []       # 's'
-mpl.rcParams["keymap.fullscreen"] = [] # 'f'
-mpl.rcParams["keymap.pan"] = []        # 'p'
-mpl.rcParams["keymap.zoom"] = []       # 'o', etc.
+mpl.rcParams["keymap.save"] = []  # 's'
+mpl.rcParams["keymap.fullscreen"] = []  # 'f'
+mpl.rcParams["keymap.pan"] = []  # 'p'
+mpl.rcParams["keymap.zoom"] = []  # 'o', etc.
 
 # --- Simulation/Control constants ---
 SIM_DT: float = 0.1
@@ -59,7 +59,7 @@ PLOT_ESTIMATED_THERMAL_PARAMS = True
 
 # --- Oscilloscope plot settings ---
 SCOPE_WINDOW_SEC: float = 30.0  # seconds to show in scope plots
-SCOPE_UPDATE_EVERY: int = 10    # update scope plots every N frames
+SCOPE_UPDATE_EVERY: int = 10  # update scope plots every N frames
 
 
 @dataclass
@@ -68,9 +68,13 @@ class ControlState:
     airspeed_ms: float
 
 
-
 class SingleThermalGliderSimulator:
-    def __init__(self, params: GliderModelParams, dt: float = SIM_DT, thermal: ThermalModel = None) -> None:
+    def __init__(
+        self,
+        params: GliderModelParams,
+        dt: float = SIM_DT,
+        thermal: ThermalModel = None,
+    ) -> None:
         self.params = params
         self.dt = dt
 
@@ -149,7 +153,9 @@ class SingleThermalGliderSimulator:
         self.control.V = self.ctrl_state.airspeed_ms
 
         if self.thermal is not None:
-            uplift = self.thermal.get_thermal_uplift(self.glider.x, self.glider.y, self.glider.h)
+            uplift = self.thermal.get_thermal_uplift(
+                self.glider.x, self.glider.y, self.glider.h
+            )
         else:
             uplift = 0.0
 
@@ -194,16 +200,18 @@ class SingleThermalGliderSimulator:
     # --- Drawing ---
 
     @staticmethod
-    def _airplane_segments(x: float, y: float, z: float, psi: float, phi: float, scale: float):
+    def _airplane_segments(
+        x: float, y: float, z: float, psi: float, phi: float, scale: float
+    ):
         cpsi, spsi = np.cos(psi), np.sin(psi)
-        ex = np.array([cpsi, spsi, 0.0])     # forward (body x) in world
-        ey = np.array([-spsi, cpsi, 0.0])    # right (body y) in world
-        ez = np.array([0.0, 0.0, 1.0])       # up (body z) in world
+        ex = np.array([cpsi, spsi, 0.0])  # forward (body x) in world
+        ey = np.array([-spsi, cpsi, 0.0])  # right (body y) in world
+        ez = np.array([0.0, 0.0, 1.0])  # up (body z) in world
 
         p0 = np.array([x, y, z])
 
-        nose   = p0 + ex * (scale * 0.8)
-        tail   = p0 - ex * (scale * 0.7)
+        nose = p0 + ex * (scale * 0.8)
+        tail = p0 - ex * (scale * 0.7)
 
         # Wings tilted by roll: +/- z offset proportional to tan(phi)
         wz = np.tan(phi) * scale * 0.5
@@ -214,22 +222,39 @@ class SingleThermalGliderSimulator:
         tail_l = tail - ey * (scale * 0.25)
 
         segs = [
-            (tail, nose),       # fuselage
-            (wing_l, wing_r),   # wings
-            (tail_l, tail_r),   # horizontal tail
+            (tail, nose),  # fuselage
+            (wing_l, wing_r),  # wings
+            (tail_l, tail_r),  # horizontal tail
         ]
         return segs, nose, ex, ey, ez
 
-    def _draw_airplane(self, x: float, y: float, z: float, psi: float, phi: float, scale: float) -> None:
+    def _draw_airplane(
+        self, x: float, y: float, z: float, psi: float, phi: float, scale: float
+    ) -> None:
         segs, nose, ex, ey, ez = self._airplane_segments(x, y, z, psi, phi, scale)
         lc = Line3DCollection(segs, linewidths=2.0, colors="red")
         self.ax.add_collection3d(lc)
 
         # small nose arrow for direction cue
         self.ax.plot(
-            [nose[0], nose[0] - 0.2 * ex[0] + 0.15 * ey[0], nose[0] - 0.2 * ex[0] - 0.15 * ey[0], nose[0]],
-            [nose[1], nose[1] - 0.2 * ex[1] + 0.15 * ey[1], nose[1] - 0.2 * ex[1] - 0.15 * ey[1], nose[1]],
-            [nose[2], nose[2] - 0.2 * ex[2] + 0.15 * ey[2], nose[2] - 0.2 * ex[2] - 0.15 * ey[2], nose[2]],
+            [
+                nose[0],
+                nose[0] - 0.2 * ex[0] + 0.15 * ey[0],
+                nose[0] - 0.2 * ex[0] - 0.15 * ey[0],
+                nose[0],
+            ],
+            [
+                nose[1],
+                nose[1] - 0.2 * ex[1] + 0.15 * ey[1],
+                nose[1] - 0.2 * ex[1] - 0.15 * ey[1],
+                nose[1],
+            ],
+            [
+                nose[2],
+                nose[2] - 0.2 * ex[2] + 0.15 * ey[2],
+                nose[2] - 0.2 * ex[2] - 0.15 * ey[2],
+                nose[2],
+            ],
             linewidth=1.2,
         )
 
@@ -246,7 +271,9 @@ class SingleThermalGliderSimulator:
             ring_x = x_c + r_th * np.cos(theta)
             ring_y = y_c + r_th * np.sin(theta)
             ring_z = np.full_like(theta, self.glider.h)
-            self.ax.plot(ring_x, ring_y, ring_z, 'b--', linewidth=1.5, label="Thermal Core")
+            self.ax.plot(
+                ring_x, ring_y, ring_z, "b--", linewidth=1.5, label="Thermal Core"
+            )
 
             # Optionally, plot core drift path (projected)
             hs_drift = np.linspace(self.glider.h - 100, self.glider.h + 100, 20)
@@ -256,7 +283,9 @@ class SingleThermalGliderSimulator:
                 xc, yc = self.thermal.core_center_at_height(h)
                 drift_x.append(xc)
                 drift_y.append(yc)
-            self.ax.plot(drift_x, drift_y, hs_drift, 'b:', linewidth=1, label="Core Drift Path")
+            self.ax.plot(
+                drift_x, drift_y, hs_drift, "b:", linewidth=1, label="Core Drift Path"
+            )
 
         # Plot estimated thermal center and radius
         if PLOT_ESTIMATED_THERMAL_PARAMS:
@@ -266,8 +295,23 @@ class SingleThermalGliderSimulator:
             est_ring_x = est_core.x + est_Rth * np.cos(theta)
             est_ring_y = est_core.y + est_Rth * np.sin(theta)
             est_ring_z = np.full_like(theta, self.glider.h)
-            self.ax.plot(est_ring_x, est_ring_y, est_ring_z, 'r--', linewidth=2, label="Estimated Core")
-            self.ax.scatter(est_core.x, est_core.y, self.glider.h, color='red', marker='x', s=80, label="Est Center")
+            self.ax.plot(
+                est_ring_x,
+                est_ring_y,
+                est_ring_z,
+                "r--",
+                linewidth=2,
+                label="Estimated Core",
+            )
+            self.ax.scatter(
+                est_core.x,
+                est_core.y,
+                self.glider.h,
+                color="red",
+                marker="x",
+                s=80,
+                label="Est Center",
+            )
 
         # Airplane glyph at current pose
         self._draw_airplane(
@@ -314,10 +358,11 @@ class SingleThermalGliderSimulator:
             pass
 
 
-
 def main() -> None:
     # Load kinematic model parameters from JSON
-    with open(os.path.join(os.path.dirname(__file__), "../ask21_kinematic_model.json"), "r") as f:
+    with open(
+        os.path.join(os.path.dirname(__file__), "../ask21_kinematic_model.json"), "r"
+    ) as f:
         model_params = json.load(f)
 
     params = GliderModelParams(
@@ -326,8 +371,8 @@ def main() -> None:
         k_v=model_params["k_v"],
         alpha_n=model_params["alpha_n"],
         initial_altitude=300.0,  # m
-        roll_tau=0.1,            # s
-        vel_tau=0.1,             # s
+        roll_tau=0.1,  # s
+        vel_tau=0.1,  # s
     )
 
     # Example thermal model parameters (can be tuned or loaded from config)

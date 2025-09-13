@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def first_order_filter(x_prev, x_target, tau, dt):
     """
     First order low-pass filter.
