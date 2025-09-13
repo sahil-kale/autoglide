@@ -35,6 +35,7 @@ from glider_model.model import (
 )
 from thermal_model.thermal_model import ThermalModel
 from estimator.estimator import ThermalEstimator
+from utils.location import WorldFrameCoordinate
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
 mpl.rcParams["keymap.save"] = []       # 's'
@@ -155,10 +156,25 @@ class SingleThermalGliderSimulator:
         self.disturbance.w = uplift
 
         # Use glider position as measurement location, and measured uplift as measurement
-        location = np.array([self.glider.x, self.glider.y])
+        location = WorldFrameCoordinate(self.glider.x, self.glider.y)
         self.estimator.step(uplift, location)
 
         self.glider.step(self.dt, self.control, self.disturbance)
+
+        self.xs.append(self.glider.x)
+        self.ys.append(self.glider.y)
+        self.hs.append(self.glider.h)
+
+        self._time += self.dt
+        self._step_count += 1
+
+        # Store for time-domain plots
+        self.times.append(self._time)
+        self.scope_data["Altitude (m)"].append(self.glider.h)
+        self.scope_data["Airspeed (m/s)"].append(self.glider.V)
+        self.scope_data["Roll (deg)"].append(np.rad2deg(self.glider.phi))
+        self.scope_data["Uplift Speed (m/s)"].append(uplift)
+        self.scope_data["Estimator Confidence"].append(self.estimator.get_confidence())
 
         self.xs.append(self.glider.x)
         self.ys.append(self.glider.y)
@@ -244,14 +260,14 @@ class SingleThermalGliderSimulator:
 
         # Plot estimated thermal center and radius
         if PLOT_ESTIMATED_THERMAL_PARAMS:
-            est_xc, est_yc = self.estimator.get_estimated_thermal_location()
+            est_core = self.estimator.get_estimated_thermal_location()
             est_Rth = self.estimator.get_estimated_thermal_radius()
             theta = np.linspace(0, 2 * np.pi, 100)
-            est_ring_x = est_xc + est_Rth * np.cos(theta)
-            est_ring_y = est_yc + est_Rth * np.sin(theta)
+            est_ring_x = est_core.x + est_Rth * np.cos(theta)
+            est_ring_y = est_core.y + est_Rth * np.sin(theta)
             est_ring_z = np.full_like(theta, self.glider.h)
             self.ax.plot(est_ring_x, est_ring_y, est_ring_z, 'r--', linewidth=2, label="Estimated Core")
-            self.ax.scatter(est_xc, est_yc, self.glider.h, color='red', marker='x', s=80, label="Est Center")
+            self.ax.scatter(est_core.x, est_core.y, self.glider.h, color='red', marker='x', s=80, label="Est Center")
 
         # Airplane glyph at current pose
         self._draw_airplane(

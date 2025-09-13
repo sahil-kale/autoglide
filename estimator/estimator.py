@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.optimize import minimize
 
+from utils.location import WorldFrameCoordinate
+
 class ThermalEstimator:
     def __init__(self, num_samples_to_buffer, debug=False):
         self.num_samples_to_buffer = num_samples_to_buffer
@@ -19,16 +21,16 @@ class ThermalEstimator:
         self.confidence = 0.0
 
     def thermal_model_estimate_updraft(self, aircraft_location, thermal_location, W0, Rth):
-        x, y = aircraft_location
-        x_th, y_th = thermal_location
-        r = np.sqrt((x - x_th) ** 2 + (y - y_th) ** 2)
+        # aircraft_location and thermal_location are WorldFrameCoordinate
+        r = aircraft_location.distance_to(thermal_location)
         base = W0
         exponent = -1.0 * (r/Rth) ** 2
         w = base * np.exp(exponent)
         return w
 
     def step(self, measurement, location):
-        assert location.shape == (2,), "Location must be a 2D coordinate (x, y)."
+        # location is now WorldFrameCoordinate
+        assert hasattr(location, 'x') and hasattr(location, 'y'), "Location must be a WorldFrameCoordinate."
         self.samples.append((measurement, location))
         if len(self.samples) > self.num_samples_to_buffer:
             self.samples.pop(0)
@@ -38,8 +40,9 @@ class ThermalEstimator:
         def cost_function(params):
             W0, Rth, x_c, y_c = params
             total_error = 0.0
+            core = WorldFrameCoordinate(x_c, y_c)
             for meas, loc in self.samples:
-                predicted_w = self.thermal_model_estimate_updraft(loc, (x_c, y_c), W0, Rth)
+                predicted_w = self.thermal_model_estimate_updraft(loc, core, W0, Rth)
                 total_error += (meas - predicted_w) ** 2
 
             W0_prev, Rth_prev, x_prev, y_prev = self.prev_params
@@ -56,8 +59,8 @@ class ThermalEstimator:
         if self.estimated_params[0] < self.no_thermal_lock_threshold:
             initial_guess[0] = 1.0
             initial_guess[1] = 50.0
-            initial_guess[2] = location[0]
-            initial_guess[3] = location[1]
+            initial_guess[2] = location.x
+            initial_guess[3] = location.y
 
         bounds = [(0.1, 20.0), (1.0, 200.0), (None, None), (None, None)]
         result = minimize(cost_function, initial_guess, bounds=bounds, method='Nelder-Mead')
@@ -79,8 +82,9 @@ class ThermalEstimator:
         
         errors = []
         W0, Rth, x_th, y_th = self.estimated_params
+        core = WorldFrameCoordinate(x_th, y_th)
         for meas, loc in self.samples:
-            predicted_w = self.thermal_model_estimate_updraft(loc, (x_th, y_th), W0, Rth)
+            predicted_w = self.thermal_model_estimate_updraft(loc, core, W0, Rth)
             errors.append(meas - predicted_w)
         
         errors = np.array(errors)
@@ -105,10 +109,11 @@ class ThermalEstimator:
     def get_estimated_thermal_location(self):
         """
         Returns:
-            (x_c, y_c): Estimated thermal center location.
+            WorldFrameCoordinate: Estimated thermal center location.
         """
-        return self.estimated_params[2], self.estimated_params[3]
+        return WorldFrameCoordinate(self.estimated_params[2], self.estimated_params[3])
     
     def eval_thermal_updraft_with_estimated_params(self, radius_to_center):
-        eval_coordinate = (radius_to_center, 0.0)
-        return self.thermal_model_estimate_updraft(eval_coordinate, (0.0, 0.0), self.estimated_params[0], self.estimated_params[1])
+        eval_coordinate = WorldFrameCoordinate(radius_to_center, 0.0)
+        core = WorldFrameCoordinate(0.0, 0.0)
+        return self.thermal_model_estimate_updraft(eval_coordinate, core, self.estimated_params[0], self.estimated_params[1])
