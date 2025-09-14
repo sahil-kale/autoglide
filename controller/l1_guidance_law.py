@@ -25,7 +25,7 @@ class L1GuidanceLaw:
         l1_distance = l1_vector.norm()
         eta = ground_speed_vector.signed_angle_between(l1_vector)
         ground_speed = ground_speed_vector.norm()
-        a_s_cmd = 2 * ground_speed**2 / self.l1_distance * np.sin(eta)
+        a_s_cmd = 2 * ground_speed**2 / l1_distance * np.sin(eta)
         return a_s_cmd
 
     def compute_bank_angle_for_lateral_acceleration(self, a_s_cmd):
@@ -37,20 +37,20 @@ def simulate_l1_guidance(mode="line", save_path="l1_guidance_sim.mp4"):
     T = 30.0
     steps = int(T / dt)
     l1 = L1GuidanceLaw()
-    l1.l1_distance = 30.0
+    l1_distance = 10.0
     V = 25.0
     if mode == "line":
         x, y = -100.0, 30.0
         psi = np.deg2rad(-10)
         def get_lookahead(x, y):
-            return WorldFrameCoordinate(x + l1.l1_distance, 0.0)
+            return WorldFrameCoordinate(x + l1_distance, 0.0)
     elif mode == "circle":
-        R = 50.0
+        R = 20.0
         x, y = R + 30.0, 0.0
         psi = np.deg2rad(45)
         def get_lookahead(x, y):
             th = np.arctan2(y, x)
-            th_target = th + l1.l1_distance / R
+            th_target = th + l1_distance / R
             return WorldFrameCoordinate(R * np.cos(th_target), R * np.sin(th_target))
     else:
         raise ValueError("mode must be 'line' or 'circle'")
