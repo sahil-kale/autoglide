@@ -33,80 +33,60 @@ class L1GuidanceLaw:
 
 
 def simulate_l1_guidance(mode="line", save_path="l1_guidance_sim.mp4"):
-    # Simulation parameters
     dt = 0.1
-    total_time = 30.0
-    steps = int(total_time / dt)
+    T = 30.0
+    steps = int(T / dt)
     l1 = L1GuidanceLaw()
     l1.l1_distance = 30.0
-    V = 25.0  # m/s
-    positions = []
-    headings = []
-    bank_angles = []
-
-    # Initial state: start offset from the path
+    V = 25.0
     if mode == "line":
-        x, y = -100.0, 30.0  # Start 30m above the line y=0
-        psi = np.deg2rad(-10)  # Slight heading offset
-        def get_lookahead_point(x, y):
-            # Project forward along y=0
+        x, y = -100.0, 30.0
+        psi = np.deg2rad(-10)
+        def get_lookahead(x, y):
             return WorldFrameCoordinate(x + l1.l1_distance, 0.0)
     elif mode == "circle":
         R = 50.0
-        x, y = R + 30.0, 0.0  # Start 30m outside the circle
-        psi = np.deg2rad(45)  # Heading offset
-        def get_lookahead_point(x, y):
-            theta = np.arctan2(y, x)
-            theta_target = theta + l1.l1_distance / R
-            return WorldFrameCoordinate(R * np.cos(theta_target), R * np.sin(theta_target))
+        x, y = R + 30.0, 0.0
+        psi = np.deg2rad(45)
+        def get_lookahead(x, y):
+            th = np.arctan2(y, x)
+            th_target = th + l1.l1_distance / R
+            return WorldFrameCoordinate(R * np.cos(th_target), R * np.sin(th_target))
     else:
-        raise ValueError("Unknown mode: choose 'line' or 'circle'")
+        raise ValueError("mode must be 'line' or 'circle'")
 
-    for step in range(steps):
-        current_loc = WorldFrameCoordinate(x, y)
-        ground_vec = Vector2D(V * np.cos(psi), V * np.sin(psi))
-        lookahead = get_lookahead_point(x, y)
-        a_s_cmd = l1.compute_lateral_acceleration_for_waypoint(ground_vec, current_loc, lookahead)
-        phi_cmd = l1.compute_bank_angle_for_lateral_acceleration(a_s_cmd)
-        # Heading rate: psi_dot = g/V * tan(phi)
-        psi_dot = l1.g / V * np.tan(phi_cmd)
-        psi += psi_dot * dt
+    traj = []
+    for _ in range(steps):
+        loc = WorldFrameCoordinate(x, y)
+        v_g = Vector2D(V * np.cos(psi), V * np.sin(psi))
+        look = get_lookahead(x, y)
+        a_cmd = l1.compute_lateral_acceleration_for_waypoint(v_g, loc, look)
+        phi = l1.compute_bank_angle_for_lateral_acceleration(a_cmd)
+        psi += l1.g / V * np.tan(phi) * dt
         x += V * np.cos(psi) * dt
         y += V * np.sin(psi) * dt
-        positions.append((x, y))
-        headings.append(psi)
-        bank_angles.append(phi_cmd)
+        traj.append((x, y))
 
-    positions = np.array(positions)
-
-    # Animation
-    fig, ax = plt.subplots(figsize=(8, 8))
+    traj = np.array(traj)
+    fig, ax = plt.subplots(figsize=(7, 7))
     ax.set_aspect('equal')
     ax.grid(True)
     if mode == "line":
-        ax.plot([-100, 100], [0, 0], 'k--', label="Target Line")
+        ax.plot([-100, 100], [0, 0], 'k--', label="target line")
     else:
-        circle = plt.Circle((0, 0), R, color='k', fill=False, linestyle='--', label="Target Circle")
-        ax.add_patch(circle)
-    path_line, = ax.plot([], [], 'b-', lw=2, label="Glider Path")
-    glider_dot, = ax.plot([], [], 'ro', markersize=8, label="Glider")
+        ax.add_patch(plt.Circle((0, 0), R, color='k', fill=False, linestyle='--', label="target circle"))
+    path, = ax.plot([], [], 'b-', lw=2)
+    glider, = ax.plot([], [], 'ro', markersize=8)
     ax.legend()
     ax.set_xlim(-120, 120)
     ax.set_ylim(-120, 120)
 
-    def init():
-        path_line.set_data([], [])
-        glider_dot.set_data([], [])
-        return path_line, glider_dot
-
     def animate(i):
-        path_line.set_data(positions[:i, 0], positions[:i, 1])
-        # glider_dot expects sequences, not scalars
-        glider_dot.set_data([positions[i, 0]], [positions[i, 1]])
-        return path_line, glider_dot
+        path.set_data(traj[:i, 0], traj[:i, 1])
+        glider.set_data([traj[i, 0]], [traj[i, 1]])
+        return path, glider
 
-    ani = animation.FuncAnimation(fig, animate, frames=steps, init_func=init,
-                                  interval=30, blit=True, repeat=False)
+    ani = animation.FuncAnimation(fig, animate, frames=steps, interval=30, blit=True, repeat=False)
     plt.show()
 
 
