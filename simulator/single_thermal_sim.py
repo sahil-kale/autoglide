@@ -34,7 +34,7 @@ from glider_model.model import (
     GliderOpenLoopKinematicModel,
 )
 from thermal_model.thermal_model import ThermalModel
-from estimator.estimator import ThermalEstimator
+from thermal_estimator.estimator import ThermalEstimator
 from utils.location import WorldFrameCoordinate
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
