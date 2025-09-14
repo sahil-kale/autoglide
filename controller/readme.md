@@ -54,8 +54,15 @@ $$
 
 Therefore, the bank angle command can be computed from the lateral acceleration command by:
 $$
-\phi_{cmd} = \tan^{-1}\left(\frac{a_{s_{cmd}}{g}\right)
+\phi_{cmd} = \tan^{-1}\left(\frac{a_{s_{cmd}}}{g}\right)
 $$ 
+
+### Pictures
+Photos of the simulation runs of only the L1 guidance law in line and circle modes are shown below:
+#### Line Tracking
+![L1 Line Tracking](l1_guidance_line.png)
+#### Circle Tracking
+![L1 Circle Tracking](l1_guidance_circle.png)
 
 # TODO
 In cruise mode, consider flying a MacCready speed based on the estimated average thermal strength and environmental sink rate.

@@ -35,14 +35,14 @@ class L1GuidanceLaw:
 
 def simulate_l1_guidance(mode="line", save_path="l1_guidance_sim.mp4"):
     dt = 0.1
-    T = 30.0
+    T = 30
     steps = int(T / dt)
     l1 = L1GuidanceLaw()
     l1_distance = 10.0
     V = 25.0
     # Wind vector (m/s)
-    wind_x = 5.0  # East
-    wind_y = 2.0  # North
+    wind_x = 8.0  # East
+    wind_y = 12.0  # North
     if mode == "line":
         x, y = -100.0, 30.0
         psi = np.deg2rad(-10)
