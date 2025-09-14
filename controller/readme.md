@@ -12,6 +12,8 @@ All control modes use the same
 ## L1 Guidance Control Law
 The L1 guidance control law (implemented in `l1_guidance_law.py`) enables the glider to track arbitrary paths (expressed as waypoints). A good explanation of L1 guidance can be found in this [paper](https://mercury.kau.ac.kr/park/Archive/PCUAV/gnc_park_deyst_how.pdf). The key idea is that an acceleration command $a_s_{cmd}$ is computed based on the lateral error to the desired path's lookahead point. The below explanation is my summary of the key points from the paper that I found relevant in implementing the law.
 
+The overall reason to use L1 guidance over pure pursuit (even though they are quite similar) is that L1 guidance takes into account the ground velocity vector of the glider and computes a lateral acceleration command with proven stability properties, whereas pure pursuit just computes a heading command to point toward the lookahead point. This becomes especially important in wind, since the glider’s ground velocity vector may not be aligned with its heading.
+
 ### Key Equations
 The lateral acceleration command is given by:
 $$

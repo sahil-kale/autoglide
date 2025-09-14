@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from estimator.estimator import ThermalEstimator
+from thermal_estimator.thermal_estimator import ThermalEstimator
 from utils.location import WorldFrameCoordinate
 
 
