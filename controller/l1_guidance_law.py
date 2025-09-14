@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from utils.location import WorldFrameCoordinate
@@ -39,44 +40,60 @@ def simulate_l1_guidance(mode="line", save_path="l1_guidance_sim.mp4"):
     l1 = L1GuidanceLaw()
     l1_distance = 10.0
     V = 25.0
+    # Wind vector (m/s)
+    wind_x = 5.0  # East
+    wind_y = 2.0  # North
     if mode == "line":
         x, y = -100.0, 30.0
         psi = np.deg2rad(-10)
+
         def get_lookahead(x, y):
             return WorldFrameCoordinate(x + l1_distance, 0.0)
+
     elif mode == "circle":
         R = 20.0
         x, y = R + 30.0, 0.0
         psi = np.deg2rad(45)
+
         def get_lookahead(x, y):
             th = np.arctan2(y, x)
             th_target = th + l1_distance / R
             return WorldFrameCoordinate(R * np.cos(th_target), R * np.sin(th_target))
+
     else:
         raise ValueError("mode must be 'line' or 'circle'")
 
     traj = []
     for _ in range(steps):
         loc = WorldFrameCoordinate(x, y)
-        v_g = Vector2D(V * np.cos(psi), V * np.sin(psi))
+        # Airspeed vector in heading direction
+        v_air = Vector2D(V * np.cos(psi), V * np.sin(psi))
+        # Add wind to get ground speed vector
+        v_g = Vector2D(v_air.x + wind_x, v_air.y + wind_y)
         look = get_lookahead(x, y)
         a_cmd = l1.compute_lateral_acceleration_for_waypoint(v_g, loc, look)
         phi = l1.compute_bank_angle_for_lateral_acceleration(a_cmd)
+        # Heading update uses airspeed only
         psi += l1.g / V * np.tan(phi) * dt
-        x += V * np.cos(psi) * dt
-        y += V * np.sin(psi) * dt
+        # Position update uses ground speed
+        x += v_g.x * dt
+        y += v_g.y * dt
         traj.append((x, y))
 
     traj = np.array(traj)
     fig, ax = plt.subplots(figsize=(7, 7))
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
     ax.grid(True)
     if mode == "line":
-        ax.plot([-100, 100], [0, 0], 'k--', label="target line")
+        ax.plot([-100, 100], [0, 0], "k--", label="target line")
     else:
-        ax.add_patch(plt.Circle((0, 0), R, color='k', fill=False, linestyle='--', label="target circle"))
-    path, = ax.plot([], [], 'b-', lw=2)
-    glider, = ax.plot([], [], 'ro', markersize=8)
+        ax.add_patch(
+            plt.Circle(
+                (0, 0), R, color="k", fill=False, linestyle="--", label="target circle"
+            )
+        )
+    (path,) = ax.plot([], [], "b-", lw=2)
+    (glider,) = ax.plot([], [], "ro", markersize=8)
     ax.legend()
     ax.set_xlim(-120, 120)
     ax.set_ylim(-120, 120)
@@ -86,13 +103,25 @@ def simulate_l1_guidance(mode="line", save_path="l1_guidance_sim.mp4"):
         glider.set_data([traj[i, 0]], [traj[i, 1]])
         return path, glider
 
-    ani = animation.FuncAnimation(fig, animate, frames=steps, interval=30, blit=True, repeat=False)
+    ani = animation.FuncAnimation(
+        fig, animate, frames=steps, interval=30, blit=True, repeat=False
+    )
     plt.show()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="L1 Guidance Law 2D Simulation")
-    parser.add_argument('--mode', choices=['line', 'circle'], default='line', help='Tracking mode: line or circle')
-    parser.add_argument('--output', type=str, default='l1_guidance_sim.mp4', help='Output video file path')
+    parser.add_argument(
+        "--mode",
+        choices=["line", "circle"],
+        default="line",
+        help="Tracking mode: line or circle",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="l1_guidance_sim.mp4",
+        help="Output video file path",
+    )
     args = parser.parse_args()
     simulate_l1_guidance(mode=args.mode, save_path=args.output)
