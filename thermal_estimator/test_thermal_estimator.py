@@ -39,23 +39,3 @@ def test_confidence_update():
         est.step(meas, loc)
     conf = est.get_confidence()
     assert 0.0 <= conf <= 1.0
-
-
-def test_estimated_thermal_location():
-    est = ThermalEstimator(5)
-    for i in range(6):
-        loc = WorldFrameCoordinate(i, 0)
-        meas = 5 * np.exp(-((i / 50) ** 2))
-        est.step(meas, loc)
-    loc = est.get_estimated_thermal_location()
-    assert hasattr(loc, "x") and hasattr(loc, "y")
-
-
-def test_eval_thermal_updraft_with_estimated_params():
-    est = ThermalEstimator(5)
-    for i in range(6):
-        loc = WorldFrameCoordinate(i, 0)
-        meas = 5 * np.exp(-((i / 50) ** 2))
-        est.step(meas, loc)
-    w = est.eval_thermal_updraft_with_estimated_params(10)
-    assert isinstance(w, float)

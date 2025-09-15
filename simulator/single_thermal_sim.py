@@ -115,7 +115,7 @@ class SingleThermalGliderSimulator:
         self.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
         # --- Estimator ---
-        self.estimator = ThermalEstimator(num_samples_to_buffer=150)
+        self.thermal_estimator = ThermalEstimator(num_samples_to_buffer=50)
         self._step_count = 0
         self._time = 0.0
         self.thermal = thermal
@@ -163,7 +163,8 @@ class SingleThermalGliderSimulator:
 
         # Use glider position as measurement location, and measured uplift as measurement
         location = WorldFrameCoordinate(self.glider.x, self.glider.y)
-        self.estimator.step(uplift, location)
+        self.thermal_estimator.step(uplift, location)
+        thermal_estimate = self.thermal_estimator.get_estimate()
 
         self.glider.step(self.dt, self.control, self.disturbance)
 
@@ -180,7 +181,7 @@ class SingleThermalGliderSimulator:
         self.scope_data["Airspeed (m/s)"].append(self.glider.V)
         self.scope_data["Roll (deg)"].append(np.rad2deg(self.glider.phi))
         self.scope_data["Uplift Speed (m/s)"].append(uplift)
-        self.scope_data["Estimator Confidence"].append(self.estimator.get_confidence())
+        self.scope_data["Estimator Confidence"].append(thermal_estimate.confidence)
 
         self.xs.append(self.glider.x)
         self.ys.append(self.glider.y)
@@ -195,7 +196,7 @@ class SingleThermalGliderSimulator:
         self.scope_data["Airspeed (m/s)"].append(self.glider.V)
         self.scope_data["Roll (deg)"].append(np.rad2deg(self.glider.phi))
         self.scope_data["Uplift Speed (m/s)"].append(uplift)
-        self.scope_data["Estimator Confidence"].append(self.estimator.get_confidence())
+        self.scope_data["Estimator Confidence"].append(thermal_estimate.confidence)
 
     # --- Drawing ---
 
@@ -289,8 +290,9 @@ class SingleThermalGliderSimulator:
 
         # Plot estimated thermal center and radius
         if PLOT_ESTIMATED_THERMAL_PARAMS:
-            est_core = self.estimator.get_estimated_thermal_location()
-            est_Rth = self.estimator.get_estimated_thermal_radius()
+            thermal_estimate = self.thermal_estimator.get_estimate()
+            est_core = thermal_estimate.get_location()
+            est_Rth = thermal_estimate.get_radius()
             theta = np.linspace(0, 2 * np.pi, 100)
             est_ring_x = est_core.x + est_Rth * np.cos(theta)
             est_ring_y = est_core.y + est_Rth * np.sin(theta)
