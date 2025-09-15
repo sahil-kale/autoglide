@@ -1,4 +1,5 @@
 from controller.guidance_state_machine import GuidanceStateMachine, GuidanceState
+from glider_model.model import GliderModelParams
 from vehicle_state_estimator.vehicle_state_estimator import VehicleState
 from thermal_estimator.thermal_estimator import ThermalEstimate
 from utils.location import WorldFrameCoordinate
@@ -7,18 +8,31 @@ from utils.vector import Vector2D
 DEFAULT_ORIGIN_WP = WorldFrameCoordinate(0.0, 0.0)
 DEFAULT_TARGET_WP = WorldFrameCoordinate(1000.0, 0.0)
 DEFAULT_ZERO_VELOCITY_VECTOR = Vector2D(0.0, 0.0)
+DEFAULT_GLIDER_MODEL_PARAMS = GliderModelParams(
+    V_star=15.0,
+    s_min=0.5,
+    k_v=0.02,
+    alpha_n=2.0,
+    initial_altitude=1000.0,
+    vel_tau=1.0,
+    roll_tau=1.0,
+)
 
 
 def test_initial_state():
     gsm = GuidanceStateMachine(
-        thermal_confidence_probe_threshold=0.3, thermal_confidence_circle_threshold=0.5
+        thermal_confidence_probe_threshold=0.3,
+        thermal_confidence_circle_threshold=0.5,
+        glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
     )
     assert gsm.get_state() == GuidanceState.CRUISE
 
 
 def test_cruise_to_probe_transition():
     gsm = GuidanceStateMachine(
-        thermal_confidence_probe_threshold=0.3, thermal_confidence_circle_threshold=0.5
+        thermal_confidence_probe_threshold=0.3,
+        thermal_confidence_circle_threshold=0.5,
+        glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
     )
     vehicle_state = VehicleState(
         position=DEFAULT_ORIGIN_WP,  # Not used in current logic
@@ -41,7 +55,9 @@ def test_cruise_to_probe_transition():
 
 def test_probe_to_circle_transition():
     gsm = GuidanceStateMachine(
-        thermal_confidence_probe_threshold=0.3, thermal_confidence_circle_threshold=0.5
+        thermal_confidence_probe_threshold=0.3,
+        thermal_confidence_circle_threshold=0.5,
+        glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
     )
     gsm.state = GuidanceState.PROBE
     vehicle_state = VehicleState(
@@ -64,7 +80,9 @@ def test_probe_to_circle_transition():
 
 def test_probe_to_cruise_transition():
     gsm = GuidanceStateMachine(
-        thermal_confidence_probe_threshold=0.3, thermal_confidence_circle_threshold=0.5
+        thermal_confidence_probe_threshold=0.3,
+        thermal_confidence_circle_threshold=0.5,
+        glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
     )
     gsm.state = GuidanceState.PROBE
     vehicle_state = VehicleState(

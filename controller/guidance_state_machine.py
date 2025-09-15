@@ -3,6 +3,7 @@ from vehicle_state_estimator.vehicle_state_estimator import VehicleState
 from thermal_estimator.thermal_estimator import ThermalEstimate
 from controller.cruise_control_law import CruiseControlLaw
 from controller.probe_control_law import ProbeControlLaw
+from controller.circling_control_law import CirclingControlLaw
 from utils.location import WorldFrameCoordinate
 
 
@@ -21,7 +22,10 @@ class GuidanceState(Enum):
 
 class GuidanceStateMachine:
     def __init__(
-        self, thermal_confidence_probe_threshold, thermal_confidence_circle_threshold
+        self,
+        thermal_confidence_probe_threshold,
+        thermal_confidence_circle_threshold,
+        glider_model_params,
     ):
         self.state = GuidanceState.CRUISE
         self.thermal_confidence_probe_threshold = thermal_confidence_probe_threshold
@@ -33,12 +37,16 @@ class GuidanceStateMachine:
             origin_waypoint=None,
         )
 
+        self.circling_control_law = CirclingControlLaw(
+            lookahead_distance=20.0, glider_model_params=glider_model_params
+        )
+
         self.probe_control_law = ProbeControlLaw(roll_angle_deg=45.0)
 
         self.state_to_control_law = {
             GuidanceState.CRUISE: self.cruise_control_law,
             GuidanceState.PROBE: self.probe_control_law,
-            GuidanceState.CIRCLE: None,  # To be implemented
+            GuidanceState.CIRCLE: self.circling_control_law,
         }
 
     def get_state(self):
@@ -83,4 +91,9 @@ class GuidanceStateMachine:
             control = control_law.compute_control(
                 vehicle_state, thermal_estimate, reset=state_change
             )
-            return control
+        else:
+            raise NotImplementedError(
+                f"Control law for state {self.state} not implemented."
+            )
+
+        return control

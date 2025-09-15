@@ -15,7 +15,7 @@ import sys
 import json
 from dataclasses import dataclass
 from typing import List
-
+import argparse
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -36,6 +36,7 @@ from glider_model.model import (
 from thermal_model.thermal_model import ThermalModel
 from thermal_estimator.thermal_estimator import ThermalEstimator
 from utils.location import WorldFrameCoordinate
+from controller.guidance_state_machine import GuidanceStateMachine, GuidanceState
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
 mpl.rcParams["keymap.save"] = []  # 's'
@@ -74,6 +75,7 @@ class SingleThermalGliderSimulator:
         params: GliderModelParams,
         dt: float = SIM_DT,
         thermal: ThermalModel = None,
+        manual_mode: bool = False,
     ) -> None:
         self.params = params
         self.dt = dt
@@ -99,10 +101,13 @@ class SingleThermalGliderSimulator:
             "Roll (deg)": [np.rad2deg(self.glider.phi)],
             "Uplift Speed (m/s)": [0.0],
             "Estimator Confidence": [1.0],
+            "Guidance State": ["Cruise"],
         }
 
         self.fig = plt.figure(figsize=(16, 8))
-        gs = gridspec.GridSpec(5, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1, 1])
+        gs = gridspec.GridSpec(
+            6, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1, 1, 1]
+        )
         self.ax = self.fig.add_subplot(gs[:, 0], projection="3d")
         self.scope_axes = []
         scope_labels = list(self.scope_data.keys())
@@ -119,6 +124,14 @@ class SingleThermalGliderSimulator:
         self._step_count = 0
         self._time = 0.0
         self.thermal = thermal
+
+        # --- Guidance State Machine ---
+        self.guidance_sm = GuidanceStateMachine(
+            thermal_confidence_probe_threshold=0.3,
+            thermal_confidence_circle_threshold=0.5,
+            glider_model_params=params,
+        )
+        self.manual_mode = manual_mode
 
     # --- Event handling ---
 
@@ -149,9 +162,6 @@ class SingleThermalGliderSimulator:
 
     def step(self) -> None:
         # --- Glider step ---
-        self.control.phi = self.ctrl_state.roll_rad
-        self.control.V = self.ctrl_state.airspeed_ms
-
         if self.thermal is not None:
             uplift = self.thermal.get_thermal_uplift(
                 self.glider.x, self.glider.y, self.glider.h
@@ -165,6 +175,36 @@ class SingleThermalGliderSimulator:
         location = WorldFrameCoordinate(self.glider.x, self.glider.y)
         self.thermal_estimator.step(uplift, location)
         thermal_estimate = self.thermal_estimator.get_estimate()
+
+        # Guidance state machine integration
+        # For now, set origin_wp and target_wp as some fixed points (can be improved)
+        origin_wp = WorldFrameCoordinate(0.0, 0.0)
+        target_wp = WorldFrameCoordinate(1000.0, 0.0)
+        # Build a VehicleState for guidance
+        from vehicle_state_estimator.vehicle_state_estimator import VehicleState
+        from utils.vector import Vector2D
+
+        vehicle_state = VehicleState(
+            position=location,
+            airspeed=self.glider.V,
+            velocity_ground=Vector2D(
+                0.0, 0.0
+            ),  # TODO: use actual ground velocity if available
+            heading=self.glider.psi,
+        )
+
+        # Control Law Implementation
+        control = self.guidance_sm.step(
+            vehicle_state, thermal_estimate, origin_wp, target_wp
+        )
+        self.control.phi = control.phi
+        self.control.V = control.V
+        guidance_state_str = str(self.guidance_sm.get_state())
+
+        if self.manual_mode:
+            # Manual mode: use WASD controls
+            self.control.phi = self.ctrl_state.roll_rad
+            self.control.V = self.ctrl_state.airspeed_ms
 
         self.glider.step(self.dt, self.control, self.disturbance)
 
@@ -182,21 +222,7 @@ class SingleThermalGliderSimulator:
         self.scope_data["Roll (deg)"].append(np.rad2deg(self.glider.phi))
         self.scope_data["Uplift Speed (m/s)"].append(uplift)
         self.scope_data["Estimator Confidence"].append(thermal_estimate.confidence)
-
-        self.xs.append(self.glider.x)
-        self.ys.append(self.glider.y)
-        self.hs.append(self.glider.h)
-
-        self._time += self.dt
-        self._step_count += 1
-
-        # Store for time-domain plots
-        self.times.append(self._time)
-        self.scope_data["Altitude (m)"].append(self.glider.h)
-        self.scope_data["Airspeed (m/s)"].append(self.glider.V)
-        self.scope_data["Roll (deg)"].append(np.rad2deg(self.glider.phi))
-        self.scope_data["Uplift Speed (m/s)"].append(uplift)
-        self.scope_data["Estimator Confidence"].append(thermal_estimate.confidence)
+        self.scope_data["Guidance State"].append(guidance_state_str)
 
     # --- Drawing ---
 
@@ -389,7 +415,13 @@ def main() -> None:
         core_center_random_noise_std=1.5,
     )
 
-    sim = SingleThermalGliderSimulator(params=params, dt=SIM_DT, thermal=thermal)
+    parser = argparse.ArgumentParser(description="Single Thermal Glider Simulator")
+    parser.add_argument("--manual", action="store_true", help="Enable manual WASD mode")
+    args = parser.parse_args()
+
+    sim = SingleThermalGliderSimulator(
+        params=params, dt=SIM_DT, thermal=thermal, manual_mode=args.manual
+    )
     sim.run()
 
 
