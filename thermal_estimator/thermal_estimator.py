@@ -8,8 +8,7 @@ from utils.location import WorldFrameCoordinate
 class ThermalEstimate:
     W0: float
     Rth: float
-    x_th: float
-    y_th: float
+    est_core: WorldFrameCoordinate
     confidence: float = 0.0
 
     def get_strength(self):
@@ -19,19 +18,19 @@ class ThermalEstimate:
         return self.Rth
 
     def get_location(self):
-        return WorldFrameCoordinate(self.x_th, self.y_th)
+        return self.est_core
 
 
 class ThermalEstimator:
     def __init__(self, num_samples_to_buffer, debug=False):
         self.num_samples_to_buffer = num_samples_to_buffer
         self.samples = []
-        self.estimate = ThermalEstimate(1.0, 50.0, 0.0, 0.0, 0.0)
+        self.estimate = ThermalEstimate(1.0, 50.0, WorldFrameCoordinate(0.0, 0.0), 0.0)
         self.prev_params = [
             self.estimate.W0,
             self.estimate.Rth,
-            self.estimate.x_th,
-            self.estimate.y_th,
+            self.estimate.est_core.x,
+            self.estimate.est_core.y,
         ]
         self.no_thermal_lock_threshold = 0.5  # m/s
         self.debug = debug
@@ -41,7 +40,7 @@ class ThermalEstimator:
         self.lambda3 = 1.0
 
         # Confidence-based scaling - can adapt lambda based on how good the fit is.
-        self.lambda_multiplier = 1.0
+        self.lambda_multiplier = 0.2
         self.confidence = 0.0
         self.average_sample_thermal_strength = 0.0
 
@@ -68,8 +67,8 @@ class ThermalEstimator:
         self.prev_params = [
             self.estimate.W0,
             self.estimate.Rth,
-            self.estimate.x_th,
-            self.estimate.y_th,
+            self.estimate.est_core.x,
+            self.estimate.est_core.y,
         ]
 
         def cost_function(params):
@@ -95,8 +94,8 @@ class ThermalEstimator:
         initial_guess = [
             self.estimate.W0,
             self.estimate.Rth,
-            self.estimate.x_th,
-            self.estimate.y_th,
+            self.estimate.est_core.x,
+            self.estimate.est_core.y,
         ]
         if self.average_sample_thermal_strength < self.no_thermal_lock_threshold:
             initial_guess[0] = 1.0
@@ -112,8 +111,7 @@ class ThermalEstimator:
             W0, Rth, x_th, y_th = result.x
             self.estimate.W0 = W0
             self.estimate.Rth = Rth
-            self.estimate.x_th = x_th
-            self.estimate.y_th = y_th
+            self.estimate.est_core = WorldFrameCoordinate(x_th, y_th)
             if self.debug:
                 print(
                     f"Estimated Parameters: W0={W0:.2f}, Rth={Rth:.2f}, x_th={x_th:.2f}, y_th={y_th:.2f}"
@@ -135,13 +133,9 @@ class ThermalEstimator:
             return
 
         errors = []
-        W0, Rth, x_th, y_th = (
-            self.estimate.W0,
-            self.estimate.Rth,
-            self.estimate.x_th,
-            self.estimate.y_th,
-        )
-        core = WorldFrameCoordinate(x_th, y_th)
+        W0, Rth = self.estimate.W0, self.estimate.Rth
+        core = self.estimate.est_core
+        errors = []
         for meas, loc in self.samples:
             predicted_w = self.thermal_model_estimate_updraft(loc, core, W0, Rth)
             errors.append(meas - predicted_w)
