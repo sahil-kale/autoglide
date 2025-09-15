@@ -5,9 +5,18 @@ from utils.constants import GRAVITY_M_PER_S_SQ
 
 class GliderModelParams:
     def __init__(
-        self, V_star, s_min, k_v, alpha_n, initial_altitude, roll_tau, vel_tau
+        self,
+        V_star,
+        s_min,
+        k_v,
+        alpha_n,
+        initial_altitude,
+        roll_tau,
+        vel_tau,
+        V_stall,
     ):
         self.V_star = V_star  # Best glide speed (m/s)
+        self.V_stall = V_stall  # Stall speed (m/s)
         self.s_min = s_min  # Minimum sink rate (m/s)
         self.k_v = k_v  # Sink rate coefficient ((m/s)/(m/s)^2)
         self.alpha_n = alpha_n  # Load factor exponent (dimensionless)

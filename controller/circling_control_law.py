@@ -36,7 +36,7 @@ class CirclingControlLaw:
 
             # note this is a maximization problem, so we minimize the negative of the objective
 
-        bounds = [(1.0, None), (self.glider_model_params.s_min - 10, None)]
+        bounds = [(1.0, None), (self.glider_model_params.V_stall, None)]
         result = minimize(objective, initial_guess, bounds=bounds)
         if result.success:
             optimal_R, optimal_V = result.x

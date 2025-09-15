@@ -340,6 +340,7 @@ def main() -> None:
 
     params = GliderModelParams(
         V_star=model_params["V_star"],
+        V_stall=model_params["V_stall"],
         s_min=model_params["s_min"],
         k_v=model_params["k_v"],
         alpha_n=model_params["alpha_n"],

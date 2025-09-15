@@ -9,7 +9,7 @@ from glider_model.model import (
 
 
 def test_glider_model_params_valid():
-    params = GliderModelParams(30, 0.6, 0.01, 0.7, 1000, 2.0, 1.5)
+    params = GliderModelParams(30, 0.6, 0.01, 0.7, 1000, 2.0, 1.5, 12.0)
     assert params.V_star == 30
     assert params.s_min == 0.6
     assert params.k_v == 0.01
@@ -17,17 +17,18 @@ def test_glider_model_params_valid():
     assert params.initial_altitude == 1000
     assert params.vel_tau == 1.5
     assert params.roll_tau == 2.0
+    assert params.V_stall == 12.0
 
 
 def test_glider_model_params_invalid():
     with pytest.raises(AssertionError):
-        GliderModelParams(-1, 0.6, 0.01, 0.7, 1000, 2.0, 1.5)
+        GliderModelParams(-1, 0.6, 0.01, 0.7, 1000, 2.0, 1.5, 12.0)
     with pytest.raises(AssertionError):
-        GliderModelParams(30, -1, 0.01, 0.7, 1000, 2.0, 1.5)
+        GliderModelParams(30, -1, 0.01, 0.7, 1000, 2.0, 1.5, 12.0)
     with pytest.raises(AssertionError):
-        GliderModelParams(30, 0.6, -1, 0.7, 1000, 2.0, 1.5)
+        GliderModelParams(30, 0.6, -1, 0.7, 1000, 2.0, 1.5, 12.0)
     with pytest.raises(AssertionError):
-        GliderModelParams(30, 0.6, 0.01, -0.1, 1000, 2.0, 1.5)
+        GliderModelParams(30, 0.6, 0.01, -0.1, 1000, 2.0, 1.5, 12.0)
 
 
 def test_glider_kinematic_model_control():
@@ -46,7 +47,7 @@ def test_glider_kinematic_model_disturbance():
 
 
 def test_open_loop_kinematic_model_step():
-    params = GliderModelParams(30, 0.6, 0.01, 0.7, 1000, 2.0, 1.5)
+    params = GliderModelParams(30, 0.6, 0.01, 0.7, 1000, 2.0, 1.5, 12.0)
     model = GliderOpenLoopKinematicModel(params)
     control = GliderKinematicModelControl(0.1, 32)
     disturbance = GliderKinematicModelDisturbance(

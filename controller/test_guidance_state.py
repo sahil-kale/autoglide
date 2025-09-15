@@ -10,6 +10,7 @@ DEFAULT_TARGET_WP = WorldFrameCoordinate(1000.0, 0.0)
 DEFAULT_ZERO_VELOCITY_VECTOR = Vector2D(0.0, 0.0)
 DEFAULT_GLIDER_MODEL_PARAMS = GliderModelParams(
     V_star=15.0,
+    V_stall=10.0,
     s_min=0.5,
     k_v=0.02,
     alpha_n=2.0,

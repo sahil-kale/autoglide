@@ -3,5 +3,6 @@
     "k_v": 0.0031,
     "s_min": 0.68,
     "V_star": 21.11,
-    "V_best_glide": 25.0
+    "V_best_glide": 25.0,
+    "V_stall": 18.5
 }
