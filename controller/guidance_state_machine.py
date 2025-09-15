@@ -17,9 +17,12 @@ class GuidanceState(Enum):
 
 
 class GuidanceStateMachine:
-    def __init__(self, thermal_confidence_threshold=0.3):
+    def __init__(
+        self, thermal_confidence_probe_threshold, thermal_confidence_circle_threshold
+    ):
         self.state = GuidanceState.CRUISE
-        self.thermal_confidence_threshold = thermal_confidence_threshold
+        self.thermal_confidence_probe_threshold = thermal_confidence_probe_threshold
+        self.thermal_confidence_circle_threshold = thermal_confidence_circle_threshold
 
     def get_state(self):
         return self.state
@@ -28,5 +31,16 @@ class GuidanceStateMachine:
         if self.state == GuidanceState.CRUISE:
             # TODO: Consider adding minimum W0 threshold to avoid weak thermals.
             # Implement at same time as MacCready logic since that will affect climb decisions.
-            if thermal_estimate.confidence >= self.thermal_confidence_threshold:
+            if thermal_estimate.confidence >= self.thermal_confidence_probe_threshold:
                 self.state = GuidanceState.PROBE
+        elif self.state == GuidanceState.PROBE:
+            if thermal_estimate.confidence >= self.thermal_confidence_circle_threshold:
+                self.state = GuidanceState.CIRCLE
+            elif thermal_estimate.confidence < self.thermal_confidence_probe_threshold:
+                self.state = GuidanceState.CRUISE
+        elif self.state == GuidanceState.CIRCLE:
+            # TODO: add logic to exit circle state if
+            # 1) Thermal confidence drops below a threshold
+            # 2) Thermal strength drops below a threshold
+            # 3) High level planner issues command to exit (ex: enough altitude gained, or cloud base reached)
+            pass

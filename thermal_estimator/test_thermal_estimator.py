@@ -28,8 +28,8 @@ def test_step_and_estimation():
     estimate = est.get_estimate()
     assert estimate.W0 > 0
     assert estimate.Rth > 0
-    assert isinstance(estimate.x_th, float)
-    assert isinstance(estimate.y_th, float)
+    assert isinstance(estimate.est_core, WorldFrameCoordinate)
+    assert 0 <= estimate.confidence <= 1
 
 
 def test_confidence_update():
