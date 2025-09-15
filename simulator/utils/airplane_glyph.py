@@ -1,7 +1,10 @@
 import numpy as np
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
-def airplane_segments(x: float, y: float, z: float, psi: float, phi: float, scale: float):
+
+def airplane_segments(
+    x: float, y: float, z: float, psi: float, phi: float, scale: float
+):
     cpsi, spsi = np.cos(psi), np.sin(psi)
     ex = np.array([cpsi, spsi, 0.0])
     ey = np.array([-spsi, cpsi, 0.0])
@@ -21,13 +24,29 @@ def airplane_segments(x: float, y: float, z: float, psi: float, phi: float, scal
     ]
     return segs, nose, ex, ey, ez
 
+
 def draw_airplane(ax, x, y, z, psi, phi, scale):
     segs, nose, ex, ey, ez = airplane_segments(x, y, z, psi, phi, scale)
     lc = Line3DCollection(segs, linewidths=2.0, colors="red")
     ax.add_collection3d(lc)
     ax.plot(
-        [nose[0], nose[0] - 0.2 * ex[0] + 0.15 * ey[0], nose[0] - 0.2 * ex[0] - 0.15 * ey[0], nose[0]],
-        [nose[1], nose[1] - 0.2 * ex[1] + 0.15 * ey[1], nose[1] - 0.2 * ex[1] - 0.15 * ey[1], nose[1]],
-        [nose[2], nose[2] - 0.2 * ex[2] + 0.15 * ey[2], nose[2] - 0.2 * ex[2] - 0.15 * ey[2], nose[2]],
+        [
+            nose[0],
+            nose[0] - 0.2 * ex[0] + 0.15 * ey[0],
+            nose[0] - 0.2 * ex[0] - 0.15 * ey[0],
+            nose[0],
+        ],
+        [
+            nose[1],
+            nose[1] - 0.2 * ex[1] + 0.15 * ey[1],
+            nose[1] - 0.2 * ex[1] - 0.15 * ey[1],
+            nose[1],
+        ],
+        [
+            nose[2],
+            nose[2] - 0.2 * ex[2] + 0.15 * ey[2],
+            nose[2] - 0.2 * ex[2] - 0.15 * ey[2],
+            nose[2],
+        ],
         linewidth=1.2,
     )

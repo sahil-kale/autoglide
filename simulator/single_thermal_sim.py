@@ -1,5 +1,3 @@
-
-
 from __future__ import annotations
 
 
@@ -89,6 +87,21 @@ class SingleThermalGliderSimulator:
         self.hs = [self.glider.h]
         self.times = [0.0]
 
+        # Vehicle state estimator
+        from vehicle_state_estimator.vehicle_state_estimator import (
+            VehicleState,
+            VehicleStateEstimatorPassthrough,
+        )
+        from utils.vector import Vector2D
+
+        initial_state = VehicleState(
+            position=WorldFrameCoordinate(self.glider.x, self.glider.y),
+            airspeed=self.glider.V,
+            velocity_ground=Vector2D(0.0, 0.0),
+            heading=self.glider.psi,
+        )
+        self.vehicle_state_estimator = VehicleStateEstimatorPassthrough(initial_state)
+
         # Scalable scope data structure: {name: [values]}
         self.scope_data = {
             "Altitude (m)": [self.glider.h],
@@ -171,22 +184,18 @@ class SingleThermalGliderSimulator:
         self.thermal_estimator.step(uplift, location)
         thermal_estimate = self.thermal_estimator.get_estimate()
 
+        # Update vehicle state estimator
+        self.vehicle_state_estimator.update(
+            glider_position=location,
+            true_airspeed=self.glider.V,
+            true_heading=self.glider.psi,
+            dt=self.dt,
+        )
+        vehicle_state = self.vehicle_state_estimator.get_state()
+
         # Guidance state machine integration
-        # For now, set origin_wp and target_wp as some fixed points (can be improved)
         origin_wp = WorldFrameCoordinate(0.0, 0.0)
         target_wp = WorldFrameCoordinate(1000.0, 0.0)
-        # Build a VehicleState for guidance
-        from vehicle_state_estimator.vehicle_state_estimator import VehicleState
-        from utils.vector import Vector2D
-
-        vehicle_state = VehicleState(
-            position=location,
-            airspeed=self.glider.V,
-            velocity_ground=Vector2D(
-                0.0, 0.0
-            ),  # TODO: use actual ground velocity if available
-            heading=self.glider.psi,
-        )
 
         # Control Law Implementation
         control = self.guidance_sm.step(
@@ -220,8 +229,6 @@ class SingleThermalGliderSimulator:
         self.scope_data["Guidance State"].append(guidance_state_str)
 
     # --- Drawing ---
-
-
 
     def draw(self, update_oscopes: bool = True) -> None:
         self.ax.clear()

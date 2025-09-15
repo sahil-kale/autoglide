@@ -81,4 +81,12 @@ class GliderOpenLoopKinematicModel:
         self.x += xdot * dt
         self.y += ydot * dt
         self.psi += psi_dot * dt
+        # wrap psi to [-pi, pi]
+        self.wrap_psi()
         self.h += h_dot * dt
+
+    def wrap_psi(self):
+        if self.psi > np.pi:
+            self.psi -= 2 * np.pi
+        elif self.psi < -np.pi:
+            self.psi += 2 * np.pi
