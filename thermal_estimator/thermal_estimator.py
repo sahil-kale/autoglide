@@ -21,6 +21,19 @@ class ThermalEstimate:
         return self.est_core
 
 
+class ReducedOrderGaussianThermalModel:
+    def __init__(self, thermal_estimate: ThermalEstimate):
+        self.params = thermal_estimate
+
+    def thermal_model_estimate_updraft(self, aircraft_location):
+        # aircraft_location and thermal_location are WorldFrameCoordinate
+        r = aircraft_location.distance_to(self.params.est_core)
+        base = self.params.W0
+        exponent = -1.0 * (r / self.params.Rth) ** 2
+        w = base * np.exp(exponent)
+        return w
+
+
 class ThermalEstimator:
     def __init__(self, num_samples_to_buffer, debug=False):
         self.num_samples_to_buffer = num_samples_to_buffer
@@ -44,16 +57,6 @@ class ThermalEstimator:
         self.confidence = 0.0
         self.average_sample_thermal_strength = 0.0
 
-    def thermal_model_estimate_updraft(
-        self, aircraft_location, thermal_location, W0, Rth
-    ):
-        # aircraft_location and thermal_location are WorldFrameCoordinate
-        r = aircraft_location.distance_to(thermal_location)
-        base = W0
-        exponent = -1.0 * (r / Rth) ** 2
-        w = base * np.exp(exponent)
-        return w
-
     def step(self, measurement, location):
         # location is now WorldFrameCoordinate
         assert hasattr(location, "x") and hasattr(
@@ -76,7 +79,11 @@ class ThermalEstimator:
             total_error = 0.0
             core = WorldFrameCoordinate(x_c, y_c)
             for meas, loc in self.samples:
-                predicted_w = self.thermal_model_estimate_updraft(loc, core, W0, Rth)
+                eval_params = ThermalEstimate(W0, Rth, core)
+
+                gaussian_model = ReducedOrderGaussianThermalModel(eval_params)
+
+                predicted_w = gaussian_model.thermal_model_estimate_updraft(loc)
                 total_error += (meas - predicted_w) ** 2
 
             W0_prev, Rth_prev, x_prev, y_prev = self.prev_params
@@ -137,7 +144,11 @@ class ThermalEstimator:
         core = self.estimate.est_core
         errors = []
         for meas, loc in self.samples:
-            predicted_w = self.thermal_model_estimate_updraft(loc, core, W0, Rth)
+            gaussian_model = ReducedOrderGaussianThermalModel(
+                ThermalEstimate(W0, Rth, core)
+            )
+            predicted_w = gaussian_model.thermal_model_estimate_updraft(loc)
+
             errors.append(meas - predicted_w)
 
         errors = np.array(errors)
@@ -153,9 +164,11 @@ class ThermalEstimator:
         """
         return self.estimate
 
-    def eval_thermal_updraft_with_estimated_params(self, radius_to_center):
+    def eval_thermal_updraft_with_estimated_params(
+        self, radius_to_center, thermal_estimate: ThermalEstimate
+    ):
         eval_coordinate = WorldFrameCoordinate(radius_to_center, 0.0)
         core = WorldFrameCoordinate(0.0, 0.0)
         return self.thermal_model_estimate_updraft(
-            eval_coordinate, core, self.estimate.W0, self.estimate.Rth
+            eval_coordinate, core, thermal_estimate.W0, thermal_estimate.Rth
         )

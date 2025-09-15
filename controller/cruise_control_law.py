@@ -20,7 +20,7 @@ class CruiseControlLaw:
         self.lookahead_distance = 30.0  # meters
 
     def compute_control(
-        self, vehicle_state: VehicleState, thermal_estimate: ThermalEstimate, reset=True
+        self, vehicle_state: VehicleState, thermal_estimate: ThermalEstimate, reset
     ):
         # compute the closest point along the path to the vehicle's current position
         vehicle_pos = vehicle_state.position

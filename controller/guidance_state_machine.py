@@ -2,6 +2,7 @@ from enum import Enum
 from vehicle_state_estimator.vehicle_state_estimator import VehicleState
 from thermal_estimator.thermal_estimator import ThermalEstimate
 from controller.cruise_control_law import CruiseControlLaw
+from controller.probe_control_law import ProbeControlLaw
 from utils.location import WorldFrameCoordinate
 
 
@@ -27,14 +28,16 @@ class GuidanceStateMachine:
         self.thermal_confidence_circle_threshold = thermal_confidence_circle_threshold
 
         self.cruise_control_law = CruiseControlLaw(
-            cruise_speed=10.0,
+            cruise_speed=25.0,
             target_waypoint=None,
             origin_waypoint=None,
         )
 
+        self.probe_control_law = ProbeControlLaw(roll_angle_deg=45.0)
+
         self.state_to_control_law = {
             GuidanceState.CRUISE: self.cruise_control_law,
-            GuidanceState.PROBE: None,  # To be implemented
+            GuidanceState.PROBE: self.probe_control_law,
             GuidanceState.CIRCLE: None,  # To be implemented
         }
 

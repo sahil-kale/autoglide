@@ -21,6 +21,13 @@ class GliderModelParams:
         assert self.k_v > 0, "k_v must be positive."
         assert self.alpha_n >= 0, "alpha_n must be non-negative."
 
+    def get_sink_rate(self, V, phi):
+        s0 = (
+            self.s_min + self.k_v * (V - self.V_star) ** 2
+        )  # Sink rate at zero bank angle
+        n = 1 / np.cos(phi)  # Load factor
+        return s0 * (n**self.alpha_n)  # Adjusted sink rate for bank angle
+
 
 class GliderKinematicModelControl:
     def __init__(self, roll_angle, airspeed):
@@ -68,17 +75,10 @@ class GliderOpenLoopKinematicModel:
         psi_dot = (
             GRAVITY_M_PER_S_SQ / self.V * np.tan(self.phi)
         )  # turn-coordinated kinematic model
-        h_dot = disturbance.w - self.get_sink_rate(self.V, self.phi, self.params)
+        h_dot = disturbance.w - self.params.get_sink_rate(self.V, self.phi)
 
         # Euler integration, keep it chill
         self.x += xdot * dt
         self.y += ydot * dt
         self.psi += psi_dot * dt
         self.h += h_dot * dt
-
-    def get_sink_rate(self, V, phi, params: GliderModelParams):
-        s0 = (
-            params.s_min + params.k_v * (V - params.V_star) ** 2
-        )  # Sink rate at zero bank angle
-        n = 1 / np.cos(phi)  # Load factor
-        return s0 * (n**params.alpha_n)  # Adjusted sink rate for bank angle

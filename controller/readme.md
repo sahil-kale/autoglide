@@ -46,7 +46,7 @@ The paper goes into more detail with regards to the stability analysis of this c
 ### Straight Line with Perturbations
 The analysis in the paper demonstrates that the control law behaves similar to the above PD controller on lateral offset when faced with perturbations in the path to track, although with a low-pass filter effect on the perturbations. This is important as it means that the glider can track a straight line path even in the presence of disturbances, whether these be due to wind gusts or trajectory perturbations.
 
-## Bank Angle Mapping
+### Bank Angle Mapping
 Within the glider kinematic model, we see that lateral acceleration is related to the roll angle $\phi$ by:
 $$
 a_s = g \tan(\phi)
@@ -56,6 +56,22 @@ Therefore, the bank angle command can be computed from the lateral acceleration 
 $$
 \phi_{cmd} = \tan^{-1}\left(\frac{a_{s_{cmd}}}{g}\right)
 $$ 
+
+## Circling Control Law
+The circling control law (implemented in `circling_control_law.py`) uses the estimates from the thermal estimator to compute a desired circling radius and bank angle to stay within the thermal. The speed-to-fly and circling radius are solved from an optimization problem which attempts to maximize the climb rate $\dot{h}$ of the glider while accounting for the sink rate $v_s$ of the glider and the estimated vertical velocity profile $w(r)$ of the thermal. The optimization problem is given by:
+$$
+\argmax_{V, R} \dot{h} = w(R) - v_s(V, \phi)
+$$
+Where:
+- $w(R)$ is the estimated vertical velocity at radius $R$ from the thermal center
+- $v_s(V, \phi)$ is the sink rate of the glider as a function of airspeed $V$ and bank angle $\phi$
+- The bank angle $\phi$ is related to the circling radius $R$ and airspeed $V$ by:
+$$
+\phi = \tan^{-1}\left(\frac{V^2}{g R}\right)
+$$
+The optimization is solved numerically using SciPy's `minimize` function, and the resulting optimal circling radius is used by the L1 guidance law to track a circular path around the estimated thermal center. The optimal airspeed is used as the speed-to-fly command for the inner-loop speed controller.
+
+Note that this is not accounting for the impact of wind on the circling path (i.e. airspeed is assumed to be equal to ground speed), which gives us a nice closed-form solution for the bank angle. While the L1 controller will still be able to track the circular path in wind, the analysis of optimal speed and bank to fly will be incorrect if the thermal is drifting at a different speed than the glider. This is a TODO for future work, but I don't expect it to be a significant issue in practice.
 
 ### Pictures
 Photos of the simulation runs of only the L1 guidance law in line and circle modes are shown below:
