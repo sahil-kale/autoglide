@@ -27,7 +27,9 @@ def test_cruise_to_probe_transition():
         heading=0.0,
     )
 
-    thermal_estimate = ThermalEstimate(W0=5, Rth=50, est_core=None, confidence=0.2)
+    thermal_estimate = ThermalEstimate(
+        W0=5, Rth=50, est_core=DEFAULT_ORIGIN_WP, confidence=0.2
+    )
     gsm.step(vehicle_state, thermal_estimate, DEFAULT_ORIGIN_WP, DEFAULT_TARGET_WP)
     assert (
         gsm.get_state() == GuidanceState.CRUISE
@@ -48,7 +50,9 @@ def test_probe_to_circle_transition():
         velocity_ground=DEFAULT_ZERO_VELOCITY_VECTOR,  # Not used in current logic
         heading=0.0,
     )
-    thermal_estimate = ThermalEstimate(W0=5, Rth=50, est_core=None, confidence=0.4)
+    thermal_estimate = ThermalEstimate(
+        W0=5, Rth=50, est_core=DEFAULT_ORIGIN_WP, confidence=0.4
+    )
     gsm.step(vehicle_state, thermal_estimate, DEFAULT_ORIGIN_WP, DEFAULT_TARGET_WP)
     assert (
         gsm.get_state() == GuidanceState.PROBE
@@ -69,7 +73,9 @@ def test_probe_to_cruise_transition():
         velocity_ground=DEFAULT_ZERO_VELOCITY_VECTOR,  # Not used in current logic
         heading=0.0,
     )
-    thermal_estimate = ThermalEstimate(W0=5, Rth=50, est_core=None, confidence=0.4)
+    thermal_estimate = ThermalEstimate(
+        W0=5, Rth=50, est_core=DEFAULT_ORIGIN_WP, confidence=0.4
+    )
     gsm.step(vehicle_state, thermal_estimate, DEFAULT_ORIGIN_WP, DEFAULT_TARGET_WP)
     assert (
         gsm.get_state() == GuidanceState.PROBE

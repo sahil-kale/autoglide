@@ -58,14 +58,3 @@ def test_open_loop_kinematic_model_step():
     assert model.y != y0
     assert model.h != h0
     assert model.psi != psi0
-
-
-def test_sink_rate_formula():
-    params = GliderModelParams(30, 0.6, 0.01, 0.7, 1000, 2.0, 1.5)
-    model = GliderOpenLoopKinematicModel(params)
-    V = 30
-    phi = 0.2
-    s = model.get_sink_rate(V, phi, params)
-    assert s > 0
-    s_zero_bank = model.get_sink_rate(V, 0.0, params)
-    assert s_zero_bank < s

@@ -1,6 +1,10 @@
 import numpy as np
 import pytest
-from thermal_estimator.thermal_estimator import ThermalEstimator
+from thermal_estimator.thermal_estimator import (
+    ThermalEstimator,
+    ReducedOrderGaussianThermalModel,
+    ThermalEstimate,
+)
 from utils.location import WorldFrameCoordinate
 
 
@@ -12,10 +16,14 @@ def test_thermal_estimator_initialization():
 
 
 def test_thermal_model_estimate_updraft():
-    est = ThermalEstimator(10)
+    estimate = ThermalEstimate(
+        W0=5, Rth=50, est_core=WorldFrameCoordinate(0, 0), confidence=0.8
+    )
     aircraft = WorldFrameCoordinate(10, 0)
     thermal = WorldFrameCoordinate(0, 0)
-    w = est.thermal_model_estimate_updraft(aircraft, thermal, W0=5, Rth=50)
+    gaussian_model = ReducedOrderGaussianThermalModel(thermal_estimate=estimate)
+
+    w = gaussian_model.thermal_model_estimate_updraft(aircraft)
     assert np.isclose(w, 5 * np.exp(-0.04), atol=1e-2)
 
 
