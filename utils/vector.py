@@ -89,3 +89,22 @@ class Vector2D:
             return Vector2D(arr[0], arr[1])
         else:
             raise ValueError("Array must have exactly two elements")
+
+
+def closest_point_to_segment(
+    path_start: Vector2D, path_end: Vector2D, point: Vector2D
+) -> Vector2D:
+    path_vec = path_end - path_start
+    point_vec = point - path_start
+    path_len = path_vec.norm()
+    assert path_len > 0, "Path start and end cannot be the same point."
+
+    path_unit_vec = path_vec / path_len
+    projection_length = point_vec.dot(path_unit_vec)
+    if projection_length < 0:
+        closest_point = path_start
+    elif projection_length > path_len:
+        closest_point = path_end
+    else:
+        closest_point = path_start + path_unit_vec * projection_length
+    return closest_point

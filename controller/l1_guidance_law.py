@@ -16,7 +16,7 @@ class L1GuidanceLaw:
     def __init__(self):
         self.g = 9.81  # Gravity (m/s^2)
 
-    def compute_lateral_acceleration_for_waypoint(
+    def _compute_lateral_acceleration_for_waypoint(
         self,
         ground_speed_vector: Vector2D,
         current_location: WorldFrameCoordinate,
@@ -29,8 +29,19 @@ class L1GuidanceLaw:
         a_s_cmd = 2 * ground_speed**2 / l1_distance * np.sin(eta)
         return a_s_cmd
 
-    def compute_bank_angle_for_lateral_acceleration(self, a_s_cmd):
+    def _compute_bank_angle_for_lateral_acceleration(self, a_s_cmd):
         return np.arctan2(a_s_cmd, self.g)
+
+    def get_L1_bank_angle(
+        self,
+        ground_speed_vector: Vector2D,
+        current_location: WorldFrameCoordinate,
+        lookahead_point: WorldFrameCoordinate,
+    ):
+        a_s_cmd = self._compute_lateral_acceleration_for_waypoint(
+            ground_speed_vector, current_location, lookahead_point
+        )
+        return self._compute_bank_angle_for_lateral_acceleration(a_s_cmd)
 
 
 def simulate_l1_guidance(mode="line", save_path="l1_guidance_sim.mp4"):
@@ -71,8 +82,7 @@ def simulate_l1_guidance(mode="line", save_path="l1_guidance_sim.mp4"):
         # Add wind to get ground speed vector
         v_g = Vector2D(v_air.x + wind_x, v_air.y + wind_y)
         look = get_lookahead(x, y)
-        a_cmd = l1.compute_lateral_acceleration_for_waypoint(v_g, loc, look)
-        phi = l1.compute_bank_angle_for_lateral_acceleration(a_cmd)
+        phi = l1.get_L1_bank_angle(v_g, loc, look)
         # Heading update uses airspeed only
         psi += l1.g / V * np.tan(phi) * dt
         # Position update uses ground speed

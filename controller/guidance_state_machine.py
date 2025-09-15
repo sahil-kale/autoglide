@@ -1,12 +1,14 @@
 from enum import Enum
 from vehicle_state_estimator.vehicle_state_estimator import VehicleState
 from thermal_estimator.thermal_estimator import ThermalEstimate
+from controller.cruise_control_law import CruiseControlLaw
+from utils.location import WorldFrameCoordinate
 
 
 class GuidanceState(Enum):
-    CRUISE = (1, "cruise")
-    PROBE = (2, "probe")
-    CIRCLE = (3, "circle")
+    CRUISE = (1, "Cruise")
+    PROBE = (2, "Probe")
+    CIRCLE = (3, "Circle")
 
     def __init__(self, num, string):
         self.num = num
@@ -24,10 +26,31 @@ class GuidanceStateMachine:
         self.thermal_confidence_probe_threshold = thermal_confidence_probe_threshold
         self.thermal_confidence_circle_threshold = thermal_confidence_circle_threshold
 
+        self.cruise_control_law = CruiseControlLaw(
+            cruise_speed=10.0,
+            target_waypoint=None,
+            origin_waypoint=None,
+        )
+
+        self.state_to_control_law = {
+            GuidanceState.CRUISE: self.cruise_control_law,
+            GuidanceState.PROBE: None,  # To be implemented
+            GuidanceState.CIRCLE: None,  # To be implemented
+        }
+
     def get_state(self):
         return self.state
 
-    def step(self, vehicle_state: VehicleState, thermal_estimate: ThermalEstimate):
+    def step(
+        self,
+        vehicle_state: VehicleState,
+        thermal_estimate: ThermalEstimate,
+        origin_wp: WorldFrameCoordinate,
+        target_wp: WorldFrameCoordinate,
+    ):
+        self.cruise_control_law.origin_waypoint = origin_wp
+        self.cruise_control_law.target_waypoint = target_wp
+
         prev_state = self.state
         if prev_state == GuidanceState.CRUISE:
             # TODO: Consider adding minimum W0 threshold to avoid weak thermals.
@@ -46,5 +69,15 @@ class GuidanceStateMachine:
             # 3) High level planner issues command to exit (ex: enough altitude gained, or cloud base reached)
             pass
 
-        if prev_state != self.state:
+        state_change = prev_state != self.state
+
+        if state_change:
             print(f"Guidance state changed from {prev_state} to {self.state}")
+
+        control_law = self.state_to_control_law[self.state]
+
+        if control_law is not None:
+            control = control_law.compute_control(
+                vehicle_state, thermal_estimate, reset=state_change
+            )
+            return control
