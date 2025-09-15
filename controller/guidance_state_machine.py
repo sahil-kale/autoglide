@@ -28,19 +28,23 @@ class GuidanceStateMachine:
         return self.state
 
     def step(self, vehicle_state: VehicleState, thermal_estimate: ThermalEstimate):
-        if self.state == GuidanceState.CRUISE:
+        prev_state = self.state
+        if prev_state == GuidanceState.CRUISE:
             # TODO: Consider adding minimum W0 threshold to avoid weak thermals.
             # Implement at same time as MacCready logic since that will affect climb decisions.
             if thermal_estimate.confidence >= self.thermal_confidence_probe_threshold:
                 self.state = GuidanceState.PROBE
-        elif self.state == GuidanceState.PROBE:
+        elif prev_state == GuidanceState.PROBE:
             if thermal_estimate.confidence >= self.thermal_confidence_circle_threshold:
                 self.state = GuidanceState.CIRCLE
             elif thermal_estimate.confidence < self.thermal_confidence_probe_threshold:
                 self.state = GuidanceState.CRUISE
-        elif self.state == GuidanceState.CIRCLE:
+        elif prev_state == GuidanceState.CIRCLE:
             # TODO: add logic to exit circle state if
             # 1) Thermal confidence drops below a threshold
             # 2) Thermal strength drops below a threshold
             # 3) High level planner issues command to exit (ex: enough altitude gained, or cloud base reached)
             pass
+
+        if prev_state != self.state:
+            print(f"Guidance state changed from {prev_state} to {self.state}")
