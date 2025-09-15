@@ -1,7 +1,10 @@
 import numpy as np
 from utils.location import WorldFrameCoordinate
 from utils.vector import Vector2D
-from vehicle_state_estimator import VehicleState, VehicleStateEstimatorPassthrough
+from vehicle_state_estimator.vehicle_state_estimator import (
+    VehicleState,
+    VehicleStateEstimatorPassthrough,
+)
 
 
 def test_ground_vector_computation():

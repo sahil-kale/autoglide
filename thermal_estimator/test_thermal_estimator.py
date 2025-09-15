@@ -25,10 +25,11 @@ def test_step_and_estimation():
         loc = WorldFrameCoordinate(i, 0)
         meas = 5 * np.exp(-((i / 50) ** 2))
         est.step(meas, loc)
-    params = est.estimated_params
-    assert len(params) == 4
-    assert params[0] > 0
-    assert params[1] > 0
+    estimate = est.get_estimate()
+    assert estimate.W0 > 0
+    assert estimate.Rth > 0
+    assert isinstance(estimate.x_th, float)
+    assert isinstance(estimate.y_th, float)
 
 
 def test_confidence_update():
@@ -37,5 +38,6 @@ def test_confidence_update():
         loc = WorldFrameCoordinate(i, 0)
         meas = 5 * np.exp(-((i / 50) ** 2))
         est.step(meas, loc)
-    conf = est.get_confidence()
-    assert 0.0 <= conf <= 1.0
+    estimate = est.get_estimate()
+    confidence = estimate.confidence
+    assert 0 <= confidence <= 1
