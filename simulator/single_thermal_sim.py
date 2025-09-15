@@ -1,11 +1,4 @@
-"""
-NOTE: This is vibe-coded - don't take it too seriously
-I'm a controls guy, not a graphics programmer ;)
 
-Single Thermal Glider Simulator (interactive)
-- Open-loop kinematic glider stepped at fixed dt
-- 3D visualization with WASD controls (A/D = roll, W/S = airspeed)
-"""
 
 from __future__ import annotations
 
@@ -37,6 +30,8 @@ from thermal_model.thermal_model import ThermalModel
 from thermal_estimator.thermal_estimator import ThermalEstimator
 from utils.location import WorldFrameCoordinate
 from controller.guidance_state_machine import GuidanceStateMachine, GuidanceState
+from simulator.utils.airplane_glyph import draw_airplane
+
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
 mpl.rcParams["keymap.save"] = []  # 's'
@@ -226,64 +221,7 @@ class SingleThermalGliderSimulator:
 
     # --- Drawing ---
 
-    @staticmethod
-    def _airplane_segments(
-        x: float, y: float, z: float, psi: float, phi: float, scale: float
-    ):
-        cpsi, spsi = np.cos(psi), np.sin(psi)
-        ex = np.array([cpsi, spsi, 0.0])  # forward (body x) in world
-        ey = np.array([-spsi, cpsi, 0.0])  # right (body y) in world
-        ez = np.array([0.0, 0.0, 1.0])  # up (body z) in world
 
-        p0 = np.array([x, y, z])
-
-        nose = p0 + ex * (scale * 0.8)
-        tail = p0 - ex * (scale * 0.7)
-
-        # Wings tilted by roll: +/- z offset proportional to tan(phi)
-        wz = np.tan(phi) * scale * 0.5
-        wing_r = p0 + ey * (scale * 0.6) - ez * wz
-        wing_l = p0 - ey * (scale * 0.6) + ez * wz
-
-        tail_r = tail + ey * (scale * 0.25)
-        tail_l = tail - ey * (scale * 0.25)
-
-        segs = [
-            (tail, nose),  # fuselage
-            (wing_l, wing_r),  # wings
-            (tail_l, tail_r),  # horizontal tail
-        ]
-        return segs, nose, ex, ey, ez
-
-    def _draw_airplane(
-        self, x: float, y: float, z: float, psi: float, phi: float, scale: float
-    ) -> None:
-        segs, nose, ex, ey, ez = self._airplane_segments(x, y, z, psi, phi, scale)
-        lc = Line3DCollection(segs, linewidths=2.0, colors="red")
-        self.ax.add_collection3d(lc)
-
-        # small nose arrow for direction cue
-        self.ax.plot(
-            [
-                nose[0],
-                nose[0] - 0.2 * ex[0] + 0.15 * ey[0],
-                nose[0] - 0.2 * ex[0] - 0.15 * ey[0],
-                nose[0],
-            ],
-            [
-                nose[1],
-                nose[1] - 0.2 * ex[1] + 0.15 * ey[1],
-                nose[1] - 0.2 * ex[1] - 0.15 * ey[1],
-                nose[1],
-            ],
-            [
-                nose[2],
-                nose[2] - 0.2 * ex[2] + 0.15 * ey[2],
-                nose[2] - 0.2 * ex[2] - 0.15 * ey[2],
-                nose[2],
-            ],
-            linewidth=1.2,
-        )
 
     def draw(self, update_oscopes: bool = True) -> None:
         self.ax.clear()
@@ -341,8 +279,8 @@ class SingleThermalGliderSimulator:
                 label="Est Center",
             )
 
-        # Airplane glyph at current pose
-        self._draw_airplane(
+        draw_airplane(
+            self.ax,
             x=self.glider.x,
             y=self.glider.y,
             z=self.glider.h,
