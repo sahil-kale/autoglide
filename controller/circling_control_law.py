@@ -32,6 +32,12 @@ class CirclingControlLaw:
             phi = np.arctan2(V**2, 9.81 * R_to_fly)
             sink_rate = self.glider_model_params.get_sink_rate(V, phi)
             net_climb_rate = w_at_R_to_fly - sink_rate
+
+            min_speed = self.glider_model_params.get_stall_speed_from_bank_angle(phi)
+            is_stalling = V < min_speed
+
+            # todo: adapt to is_stalling?
+
             return -net_climb_rate
 
             # note this is a maximization problem, so we minimize the negative of the objective

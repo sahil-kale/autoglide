@@ -30,6 +30,10 @@ class GliderModelParams:
         assert self.k_v > 0, "k_v must be positive."
         assert self.alpha_n >= 0, "alpha_n must be non-negative."
 
+    def get_stall_speed_from_bank_angle(self, phi):
+        n = 1 / np.cos(phi)  # Load factor
+        return self.V_stall * np.sqrt(n)  # Adjusted stall speed for bank
+
     def get_sink_rate(self, V, phi):
         s0 = (
             self.s_min + self.k_v * (V - self.V_star) ** 2

@@ -345,8 +345,8 @@ def main() -> None:
         k_v=model_params["k_v"],
         alpha_n=model_params["alpha_n"],
         initial_altitude=300.0,  # m
-        roll_tau=0.1,  # s
-        vel_tau=0.1,  # s
+        roll_tau=0.2,  # s
+        vel_tau=0.2,  # s
     )
 
     # Example thermal model parameters (can be tuned or loaded from config)
