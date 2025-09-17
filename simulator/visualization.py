@@ -1,7 +1,7 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from simulator.visualizer_constants import VisualizerParams
+from simulator.constants import VisualizerParams
 from simulator.utils.airplane_glyph import draw_airplane
 
 

@@ -31,9 +31,19 @@ from vehicle_state_estimator.vehicle_state_estimator import (
     VehicleState,
     VehicleStateEstimatorPassthrough,
 )
-
 import dataclasses
 from utils.vector import Vector2D
+from simulator.constants import DefaultVisualizerParams
+import json
+import datetime
+from simulator.constants import (
+    SIM_DT,
+    ROLL_STEP_RAD,
+    VEL_STEP_MS,
+    ROLL_LIMIT_RAD,
+    V_MIN,
+    V_MAX,
+)
 
 
 @dataclass
@@ -50,8 +60,6 @@ class SingleThermalSimParams:
 
 
 # --- Logging ---
-import json
-import datetime
 
 LOG_OUTPUT_DIR = "output"
 
@@ -175,23 +183,6 @@ mpl.rcParams["keymap.fullscreen"] = []  # 'f'
 mpl.rcParams["keymap.pan"] = []  # 'p'
 mpl.rcParams["keymap.zoom"] = []  # 'o', etc.
 
-# --- Simulation/Control constants ---
-SIM_DT: float = 0.1
-ROLL_STEP_RAD: float = np.deg2rad(5.0)
-VEL_STEP_MS: float = 1.0
-ROLL_LIMIT_RAD: float = np.deg2rad(60.0)
-V_MIN: float = 20.0
-V_MAX: float = 50.0
-PLOT_SPAN_XY: float = 100.0
-PLOT_SPAN_Z: float = 50.0
-DRAW_EVERY_STEPS: int = 2
-AIRPLANE_SCALE: float = 6.0
-# --- Estimator/Plotting ---
-PLOT_ESTIMATED_THERMAL_PARAMS = True
-
-# --- Oscilloscope plot settings ---
-SCOPE_WINDOW_SEC: float = 30.0  # seconds to show in scope plots
-
 
 @dataclass
 class ControlState:
@@ -239,26 +230,10 @@ class SingleThermalGliderSimulator:
         )
         self.vehicle_state_estimator = VehicleStateEstimatorPassthrough(initial_state)
 
-        # Scalable scope data structure: {name: [values]}
-        self.scope_data = {
-            "Altitude (m)": [self.glider.h],
-            "Airspeed (m/s)": [self.glider.V],
-            "Roll (deg)": [np.rad2deg(self.glider.phi)],
-            "Uplift Speed (m/s)": [0.0],
-            "Estimator Confidence": [1.0],
-            "Guidance State": ["Cruise"],
-        }
-
-        from simulator.visualizer_constants import VisualizerParams
-
-        scope_labels = list(self.scope_data.keys())
-        vis_params = VisualizerParams(
-            scope_labels=scope_labels,
-            airplane_scale=AIRPLANE_SCALE,
-            plot_span_xy=PLOT_SPAN_XY,
-            plot_span_z=PLOT_SPAN_Z,
-            plot_estimated_thermal_params=PLOT_ESTIMATED_THERMAL_PARAMS,
-            scope_window_sec=SCOPE_WINDOW_SEC,
+        vis_params, self.scope_data = DefaultVisualizerParams.make(
+            self.glider.h,
+            self.glider.V,
+            self.glider.phi,
             headless=sim_params.headless,
             video_save_path=sim_params.video_save_path,
         )
