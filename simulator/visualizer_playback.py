@@ -19,9 +19,6 @@ mpl.rcParams["keymap.pan"] = []  # 'p'
 mpl.rcParams["keymap.zoom"] = []  # 'o', etc.
 
 
-
-
-
 def load_log(log_path):
     with open(log_path, "r") as f:
         for line in f:
@@ -50,42 +47,43 @@ def main():
         print("No log entries found.")
         return
 
-
     # Use the first log entry to get initial values for scope_data
     first = log_entries[0]
     glider_h = first.get("glider_h", 0.0)
     glider_V = first.get("glider_V", 0.0)
     glider_phi = first.get("glider_phi", 0.0)
     vis_params, _ = DefaultVisualizerParams.make(
-        glider_h, glider_V, glider_phi,
+        glider_h,
+        glider_V,
+        glider_phi,
         headless=args.headless,
         video_save_path=args.video_save_path,
     )
     visualizer = SingleThermalSimVisualizer(vis_params)
 
     def to_loggedstate(d):
-        # Minimal: only set fields that exist in the dict
-        obj = LoggedState(
-            time=d.get("time"),
-            glider_x=d.get("glider_x"),
-            glider_y=d.get("glider_y"),
-            glider_h=d.get("glider_h"),
-            glider_V=d.get("glider_V"),
-            glider_phi=d.get("glider_phi"),
-            glider_psi=d.get("glider_psi"),
-            control_phi=d.get("control_phi"),
-            control_V=d.get("control_V"),
-            disturbance_w=d.get("disturbance_w"),
-            estimator_confidence=d.get("estimator_confidence"),
-            guidance_state=d.get("guidance_state"),
-            est_thermal_x=d.get("est_thermal_x"),
-            est_thermal_y=d.get("est_thermal_y"),
-            est_thermal_strength=d.get("est_thermal_strength"),
-            est_thermal_radius=d.get("est_thermal_radius"),
-            est_thermal_height=d.get("est_thermal_height"),
-            est_thermal_sigma=d.get("est_thermal_sigma"),
+        # Use all fields that exist in the dict, defaulting to 0.0 or None as appropriate
+        return LoggedState(
+            time=d.get("time", 0.0),
+            glider_x=d.get("glider_x", 0.0),
+            glider_y=d.get("glider_y", 0.0),
+            glider_h=d.get("glider_h", 0.0),
+            glider_V=d.get("glider_V", 0.0),
+            glider_phi=d.get("glider_phi", 0.0),
+            glider_psi=d.get("glider_psi", 0.0),
+            control_phi=d.get("control_phi", 0.0),
+            control_V=d.get("control_V", 0.0),
+            disturbance_w=d.get("disturbance_w", 0.0),
+            estimator_confidence=d.get("estimator_confidence", 0.0),
+            guidance_state=d.get("guidance_state", ""),
+            est_thermal_x=d.get("est_thermal_x", 0.0),
+            est_thermal_y=d.get("est_thermal_y", 0.0),
+            est_thermal_strength=d.get("est_thermal_strength", 0.0),
+            est_thermal_radius=d.get("est_thermal_radius", 0.0),
+            actual_thermal_x=d.get("actual_thermal_x", 0.0),
+            actual_thermal_y=d.get("actual_thermal_y", 0.0),
+            actual_thermal_radius=d.get("actual_thermal_radius", 0.0),
         )
-        return obj
 
     if args.headless:
         for entry in log_entries:

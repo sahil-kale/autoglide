@@ -28,64 +28,100 @@ class SingleThermalSimVisualizer:
         self.params = params
         self._frames = [] if params.headless and params.video_save_path else None
         self._step_count = 0
+        # Store state for plotting
+        self.xs = []
+        self.ys = []
+        self.hs = []
+        self.times = []
+        self.scope_data = {label: [] for label in params.scope_labels}
 
     def draw(self, loggedstate):
+        # Update internal state with new data
+        self.xs.append(loggedstate.glider_x)
+        self.ys.append(loggedstate.glider_y)
+        self.hs.append(loggedstate.glider_h)
+        self.times.append(loggedstate.time)
+        # For scope_data, update each label if present in loggedstate
+        for label in self.scope_data:
+            val = getattr(loggedstate, self._label_to_attr(label), None)
+            if val is not None:
+                self.scope_data[label].append(val)
+            else:
+                # Fallback: try to append NaN if not present
+                self.scope_data[label].append(np.nan)
+
         SCOPE_UPDATE_EVERY = 10
         update_oscopes = self._step_count % SCOPE_UPDATE_EVERY == 0
         self.ax.clear()
-        self.ax.plot(
-            loggedstate.xs, loggedstate.ys, loggedstate.hs, linewidth=2, label="Path"
-        )
-        if loggedstate.thermal is not None:
-            x_c, y_c = loggedstate.thermal.core_center_at_height(loggedstate.glider_h)
-            r_th = loggedstate.thermal.r_th
-            theta = np.linspace(0, 2 * np.pi, 100)
-            ring_x = x_c + r_th * np.cos(theta)
-            ring_y = y_c + r_th * np.sin(theta)
-            ring_z = np.full_like(theta, loggedstate.glider_h)
-            self.ax.plot(
-                ring_x, ring_y, ring_z, "b--", linewidth=1.5, label="Thermal Core"
-            )
-            hs_drift = np.linspace(
-                loggedstate.glider_h - 100, loggedstate.glider_h + 100, 20
-            )
-            drift_x = []
-            drift_y = []
-            for h in hs_drift:
-                xc, yc = loggedstate.thermal.core_center_at_height(h)
-                drift_x.append(xc)
-                drift_y.append(yc)
-            self.ax.plot(
-                drift_x, drift_y, hs_drift, "b:", linewidth=1, label="Core Drift Path"
-            )
+        self.ax.plot(self.xs, self.ys, self.hs, linewidth=2, label="Path")
+        # Plot actual thermal core (blue)
         if (
-            self.params.plot_estimated_thermal_params
-            and loggedstate.thermal_estimator is not None
+            hasattr(loggedstate, "actual_thermal_x")
+            and hasattr(loggedstate, "actual_thermal_y")
+            and hasattr(loggedstate, "actual_thermal_radius")
+            and loggedstate.actual_thermal_radius is not None
         ):
-            thermal_estimate = loggedstate.thermal_estimator.get_estimate()
-            est_core = thermal_estimate.get_location()
-            est_Rth = thermal_estimate.get_radius()
             theta = np.linspace(0, 2 * np.pi, 100)
-            est_ring_x = est_core.x + est_Rth * np.cos(theta)
-            est_ring_y = est_core.y + est_Rth * np.sin(theta)
-            est_ring_z = np.full_like(theta, loggedstate.glider_h)
+            actual_ring_x = (
+                loggedstate.actual_thermal_x
+                + loggedstate.actual_thermal_radius * np.cos(theta)
+            )
+            actual_ring_y = (
+                loggedstate.actual_thermal_y
+                + loggedstate.actual_thermal_radius * np.sin(theta)
+            )
+            actual_ring_z = np.full_like(theta, loggedstate.glider_h)
             self.ax.plot(
-                est_ring_x,
-                est_ring_y,
-                est_ring_z,
-                "r--",
-                linewidth=2,
-                label="Estimated Core",
+                actual_ring_x,
+                actual_ring_y,
+                actual_ring_z,
+                "b--",
+                linewidth=1.5,
+                label="Thermal Core",
             )
             self.ax.scatter(
-                est_core.x,
-                est_core.y,
+                loggedstate.actual_thermal_x,
+                loggedstate.actual_thermal_y,
                 loggedstate.glider_h,
-                color="red",
-                marker="x",
-                s=80,
-                label="Est Center",
+                color="blue",
+                marker="o",
+                s=60,
+                label="Core Center",
             )
+        # Plot estimated thermal core (red)
+        if self.params.plot_estimated_thermal_params:
+            if (
+                loggedstate.est_thermal_x is not None
+                and loggedstate.est_thermal_y is not None
+                and loggedstate.est_thermal_radius is not None
+            ):
+                theta = np.linspace(0, 2 * np.pi, 100)
+                est_ring_x = (
+                    loggedstate.est_thermal_x
+                    + loggedstate.est_thermal_radius * np.cos(theta)
+                )
+                est_ring_y = (
+                    loggedstate.est_thermal_y
+                    + loggedstate.est_thermal_radius * np.sin(theta)
+                )
+                est_ring_z = np.full_like(theta, loggedstate.glider_h)
+                self.ax.plot(
+                    est_ring_x,
+                    est_ring_y,
+                    est_ring_z,
+                    "r--",
+                    linewidth=2,
+                    label="Estimated Core",
+                )
+                self.ax.scatter(
+                    loggedstate.est_thermal_x,
+                    loggedstate.est_thermal_y,
+                    loggedstate.glider_h,
+                    color="red",
+                    marker="x",
+                    s=80,
+                    label="Est Center",
+                )
         draw_airplane(
             self.ax,
             x=loggedstate.glider_x,
@@ -115,12 +151,13 @@ class SingleThermalSimVisualizer:
         if update_oscopes:
             t_window = self.params.scope_window_sec
             t_now = loggedstate.time
-            times_arr = np.array(loggedstate.times)
+            times_arr = np.array(self.times)
             idx_start = np.searchsorted(times_arr, t_now - t_window)
-            scope_items = list(loggedstate.scope_data.items())
-            for ax, (label, data) in zip(self.scope_axes, scope_items):
+            for ax, label in zip(self.scope_axes, self.scope_data):
                 ax.clear()
-                ax.plot(times_arr[idx_start:], np.array(data)[idx_start:])
+                ax.plot(
+                    times_arr[idx_start:], np.array(self.scope_data[label])[idx_start:]
+                )
                 ax.set_ylabel(label)
             self.scope_axes[-1].set_xlabel("Time (s)")
         if self.params.headless:
@@ -136,6 +173,19 @@ class SingleThermalSimVisualizer:
             plt.pause(0.001)
 
         self._step_count += 1
+
+    def _label_to_attr(self, label):
+        # Map scope label to LoggedState attribute name
+        # This mapping may need to be customized based on label names
+        label_map = {
+            "Altitude (m)": "glider_h",
+            "Airspeed (m/s)": "glider_V",
+            "Roll (deg)": "glider_phi",
+            "Uplift Speed (m/s)": "disturbance_w",
+            "Estimator Confidence": "estimator_confidence",
+            "Guidance State": "guidance_state",
+        }
+        return label_map.get(label, label)
 
     def finalize_video(self):
         if self._frames is not None and self.params.video_save_path:

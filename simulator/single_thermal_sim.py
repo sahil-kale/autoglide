@@ -80,20 +80,13 @@ class LoggedState:
         disturbance_w,
         estimator_confidence,
         guidance_state,
-        est_thermal_x=None,
-        est_thermal_y=None,
-        est_thermal_strength=None,
-        est_thermal_radius=None,
-        est_thermal_height=None,
-        est_thermal_sigma=None,
-        xs=None,
-        ys=None,
-        hs=None,
-        times=None,
-        scope_data=None,
-        airplane=None,
-        thermal=None,
-        thermal_estimator=None,
+        est_thermal_x=0.0,
+        est_thermal_y=0.0,
+        est_thermal_strength=0.0,
+        est_thermal_radius=0.0,
+        actual_thermal_x=0.0,
+        actual_thermal_y=0.0,
+        actual_thermal_radius=0.0,
     ):
         self.time = time
         self.glider_x = glider_x
@@ -111,26 +104,17 @@ class LoggedState:
         self.est_thermal_y = est_thermal_y
         self.est_thermal_strength = est_thermal_strength
         self.est_thermal_radius = est_thermal_radius
-        self.est_thermal_height = est_thermal_height
-        self.est_thermal_sigma = est_thermal_sigma
-        self.xs = xs
-        self.ys = ys
-        self.hs = hs
-        self.times = times
-        self.scope_data = scope_data
-        self.airplane = airplane
-        self.thermal = thermal
-        self.thermal_estimator = thermal_estimator
+        self.actual_thermal_x = actual_thermal_x
+        self.actual_thermal_y = actual_thermal_y
+        self.actual_thermal_radius = actual_thermal_radius
 
     @staticmethod
     def from_sim(sim) -> "LoggedState":
-        est = sim.thermal_estimator.get_estimate()
-        est_x = getattr(est, "x", None)
-        est_y = getattr(est, "y", None)
-        est_strength = getattr(est, "strength", None)
-        est_radius = getattr(est, "radius", None)
-        est_height = getattr(est, "height", None)
-        est_sigma = getattr(est, "sigma", None)
+        thermal_estimate = sim.thermal_estimator.get_estimate()
+        # Get actual thermal center and radius at current altitude
+        assert sim.thermal is not None, "Thermal model is not defined in simulator."
+        actual_x, actual_y = sim.thermal.core_center_at_height(sim.glider.h)
+        actual_r = getattr(sim.thermal, "r_th", 0.0)
         return LoggedState(
             time=sim._time,
             glider_x=sim.glider.x,
@@ -144,36 +128,17 @@ class LoggedState:
             disturbance_w=sim.disturbance.w,
             estimator_confidence=sim.scope_data["Estimator Confidence"][-1],
             guidance_state=sim.scope_data["Guidance State"][-1],
-            est_thermal_x=est_x,
-            est_thermal_y=est_y,
-            est_thermal_strength=est_strength,
-            est_thermal_radius=est_radius,
-            est_thermal_height=est_height,
-            est_thermal_sigma=est_sigma,
-            xs=sim.xs,
-            ys=sim.ys,
-            hs=sim.hs,
-            times=sim.times,
-            scope_data=sim.scope_data,
-            airplane=sim.glider,
-            thermal=sim.thermal,
-            thermal_estimator=sim.thermal_estimator,
+            est_thermal_x=thermal_estimate.est_core.x,
+            est_thermal_y=thermal_estimate.est_core.y,
+            est_thermal_strength=thermal_estimate.W0,
+            est_thermal_radius=thermal_estimate.Rth,
+            actual_thermal_x=actual_x,
+            actual_thermal_y=actual_y,
+            actual_thermal_radius=actual_r,
         )
 
     def to_json(self):
         d = self.__dict__.copy()
-        # Remove non-serializable fields for logging
-        for k in [
-            "xs",
-            "ys",
-            "hs",
-            "times",
-            "scope_data",
-            "airplane",
-            "thermal",
-            "thermal_estimator",
-        ]:
-            d.pop(k, None)
         return json.dumps(d)
 
 
