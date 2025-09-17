@@ -1,10 +1,8 @@
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 import numpy as np
-
-
 from simulator.visualizer_constants import VisualizerParams
+from simulator.utils.airplane_glyph import draw_airplane
 
 
 class SingleThermalSimVisualizer:
@@ -16,7 +14,7 @@ class SingleThermalSimVisualizer:
             from matplotlib.backends.backend_agg import FigureCanvasAgg
 
             self.fig.canvas = FigureCanvasAgg(self.fig)
-        gs = gridspec.GridSpec(
+        gs = matplotlib.gridspec.GridSpec(
             6, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1, 1, 1]
         )
         self.ax = self.fig.add_subplot(gs[:, 0], projection="3d")
@@ -29,10 +27,11 @@ class SingleThermalSimVisualizer:
         self.fig.tight_layout()
         self.params = params
         self._frames = [] if params.headless and params.video_save_path else None
+        self._step_count = 0
 
-    def draw(self, loggedstate, step_count, draw_airplane_func):
+    def draw(self, loggedstate):
         SCOPE_UPDATE_EVERY = 10
-        update_oscopes = step_count % SCOPE_UPDATE_EVERY == 0
+        update_oscopes = self._step_count % SCOPE_UPDATE_EVERY == 0
         self.ax.clear()
         self.ax.plot(
             loggedstate.xs, loggedstate.ys, loggedstate.hs, linewidth=2, label="Path"
@@ -87,7 +86,7 @@ class SingleThermalSimVisualizer:
                 s=80,
                 label="Est Center",
             )
-        draw_airplane_func(
+        draw_airplane(
             self.ax,
             x=loggedstate.glider_x,
             y=loggedstate.glider_y,
@@ -135,6 +134,8 @@ class SingleThermalSimVisualizer:
                 self._frames.append(frame.copy())
         else:
             plt.pause(0.001)
+
+        self._step_count += 1
 
     def finalize_video(self):
         if self._frames is not None and self.params.video_save_path:

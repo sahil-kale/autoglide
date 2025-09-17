@@ -356,12 +356,8 @@ class SingleThermalGliderSimulator:
 
     # --- Drawing ---
 
-    def draw(self, update_oscopes: bool = True) -> None:
-        self.visualizer.draw(
-            self._last_loggedstate,
-            step_count=self._step_count,
-            draw_airplane_func=draw_airplane,
-        )
+    def draw(self) -> None:
+        self.visualizer.draw(self._last_loggedstate)
 
     def run(self) -> None:
         try:
@@ -369,14 +365,14 @@ class SingleThermalGliderSimulator:
                 max_steps = int(self.sim_params.sim_runtime / self.dt)
                 for _ in range(max_steps):
                     self.step()
-                    self.draw(update_oscopes=(self._step_count % 10 == 0))
+                    self.draw()
                 # Finalize video if needed
                 if self.sim_params.video_save_path:
                     self.visualizer.finalize_video()
             else:
                 while True:
                     self.step()
-                    self.draw(update_oscopes=(self._step_count % 10 == 0))
+                    self.draw()
         finally:
             self.log_file.close()
 
