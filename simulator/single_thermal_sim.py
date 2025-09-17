@@ -44,6 +44,7 @@ from simulator.constants import (
     V_MIN,
     V_MAX,
 )
+from simulator.logged_state import LoggedState
 
 
 @dataclass
@@ -62,84 +63,6 @@ class SingleThermalSimParams:
 # --- Logging ---
 
 LOG_OUTPUT_DIR = "output"
-
-
-@dataclass
-class LoggedState:
-    def __init__(
-        self,
-        time,
-        glider_x,
-        glider_y,
-        glider_h,
-        glider_V,
-        glider_phi,
-        glider_psi,
-        control_phi,
-        control_V,
-        disturbance_w,
-        estimator_confidence,
-        guidance_state,
-        est_thermal_x=0.0,
-        est_thermal_y=0.0,
-        est_thermal_strength=0.0,
-        est_thermal_radius=0.0,
-        actual_thermal_x=0.0,
-        actual_thermal_y=0.0,
-        actual_thermal_radius=0.0,
-    ):
-        self.time = time
-        self.glider_x = glider_x
-        self.glider_y = glider_y
-        self.glider_h = glider_h
-        self.glider_V = glider_V
-        self.glider_phi = glider_phi
-        self.glider_psi = glider_psi
-        self.control_phi = control_phi
-        self.control_V = control_V
-        self.disturbance_w = disturbance_w
-        self.estimator_confidence = estimator_confidence
-        self.guidance_state = guidance_state
-        self.est_thermal_x = est_thermal_x
-        self.est_thermal_y = est_thermal_y
-        self.est_thermal_strength = est_thermal_strength
-        self.est_thermal_radius = est_thermal_radius
-        self.actual_thermal_x = actual_thermal_x
-        self.actual_thermal_y = actual_thermal_y
-        self.actual_thermal_radius = actual_thermal_radius
-
-    @staticmethod
-    def from_sim(sim) -> "LoggedState":
-        thermal_estimate = sim.thermal_estimator.get_estimate()
-        # Get actual thermal center and radius at current altitude
-        assert sim.thermal is not None, "Thermal model is not defined in simulator."
-        actual_x, actual_y = sim.thermal.core_center_at_height(sim.glider.h)
-        actual_r = getattr(sim.thermal, "r_th", 0.0)
-        return LoggedState(
-            time=sim._time,
-            glider_x=sim.glider.x,
-            glider_y=sim.glider.y,
-            glider_h=sim.glider.h,
-            glider_V=sim.glider.V,
-            glider_phi=sim.glider.phi,
-            glider_psi=sim.glider.psi,
-            control_phi=sim.control.phi,
-            control_V=sim.control.V,
-            disturbance_w=sim.disturbance.w,
-            estimator_confidence=sim.scope_data["Estimator Confidence"][-1],
-            guidance_state=sim.scope_data["Guidance State"][-1],
-            est_thermal_x=thermal_estimate.est_core.x,
-            est_thermal_y=thermal_estimate.est_core.y,
-            est_thermal_strength=thermal_estimate.W0,
-            est_thermal_radius=thermal_estimate.Rth,
-            actual_thermal_x=actual_x,
-            actual_thermal_y=actual_y,
-            actual_thermal_radius=actual_r,
-        )
-
-    def to_json(self):
-        d = self.__dict__.copy()
-        return json.dumps(d)
 
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
@@ -289,10 +212,39 @@ class SingleThermalGliderSimulator:
         self.scope_data["Uplift Speed (m/s)"].append(uplift)
         self.scope_data["Estimator Confidence"].append(thermal_estimate.confidence)
         self.scope_data["Guidance State"].append(guidance_state_str)
-        log_entry = LoggedState.from_sim(self)
+        log_entry = self.loggedstate_from_self()
         self.log_file.write(log_entry.to_json() + "\n")
         self.log_file.flush()
         self._last_loggedstate = log_entry
+
+    def loggedstate_from_self(self) -> "LoggedState":
+        from simulator.logged_state import LoggedState
+
+        thermal_estimate = self.thermal_estimator.get_estimate()
+        assert self.thermal is not None, "Thermal model is not defined in selfulator."
+        actual_x, actual_y = self.thermal.core_center_at_height(self.glider.h)
+        actual_r = getattr(self.thermal, "r_th", 0.0)
+        return LoggedState(
+            time=self._time,
+            glider_x=self.glider.x,
+            glider_y=self.glider.y,
+            glider_h=self.glider.h,
+            glider_V=self.glider.V,
+            glider_phi=self.glider.phi,
+            glider_psi=self.glider.psi,
+            control_phi=self.control.phi,
+            control_V=self.control.V,
+            disturbance_w=self.disturbance.w,
+            estimator_confidence=self.scope_data["Estimator Confidence"][-1],
+            guidance_state=self.scope_data["Guidance State"][-1],
+            est_thermal_x=thermal_estimate.est_core.x,
+            est_thermal_y=thermal_estimate.est_core.y,
+            est_thermal_strength=thermal_estimate.W0,
+            est_thermal_radius=thermal_estimate.Rth,
+            actual_thermal_x=actual_x,
+            actual_thermal_y=actual_y,
+            actual_thermal_radius=actual_r,
+        )
 
     # --- Drawing ---
 

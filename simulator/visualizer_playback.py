@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from simulator.visualization import SingleThermalSimVisualizer
 from simulator.constants import DefaultVisualizerParams
-from simulator.single_thermal_sim import LoggedState
+from simulator.logged_state import LoggedState
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
 mpl.rcParams["keymap.save"] = []  # 's'
@@ -62,28 +62,7 @@ def main():
     visualizer = SingleThermalSimVisualizer(vis_params)
 
     def to_loggedstate(d):
-        # Use all fields that exist in the dict, defaulting to 0.0 or None as appropriate
-        return LoggedState(
-            time=d.get("time", 0.0),
-            glider_x=d.get("glider_x", 0.0),
-            glider_y=d.get("glider_y", 0.0),
-            glider_h=d.get("glider_h", 0.0),
-            glider_V=d.get("glider_V", 0.0),
-            glider_phi=d.get("glider_phi", 0.0),
-            glider_psi=d.get("glider_psi", 0.0),
-            control_phi=d.get("control_phi", 0.0),
-            control_V=d.get("control_V", 0.0),
-            disturbance_w=d.get("disturbance_w", 0.0),
-            estimator_confidence=d.get("estimator_confidence", 0.0),
-            guidance_state=d.get("guidance_state", ""),
-            est_thermal_x=d.get("est_thermal_x", 0.0),
-            est_thermal_y=d.get("est_thermal_y", 0.0),
-            est_thermal_strength=d.get("est_thermal_strength", 0.0),
-            est_thermal_radius=d.get("est_thermal_radius", 0.0),
-            actual_thermal_x=d.get("actual_thermal_x", 0.0),
-            actual_thermal_y=d.get("actual_thermal_y", 0.0),
-            actual_thermal_radius=d.get("actual_thermal_radius", 0.0),
-        )
+        return LoggedState.from_json(d)
 
     if args.headless:
         for entry in log_entries:
