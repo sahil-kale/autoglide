@@ -46,6 +46,51 @@ class SingleThermalSimParams:
     headless: bool = False
     sim_runtime: float = 60.0  # seconds, only used if headless
     video_save_path: str = None  # only used if headless
+    sim_title: str = "default_sim"
+
+
+# --- Logging ---
+import json
+import datetime
+
+LOG_OUTPUT_DIR = "output"
+
+
+@dataclass
+class LoggedState:
+    time: float
+    glider_x: float
+    glider_y: float
+    glider_h: float
+    glider_V: float
+    glider_phi: float
+    glider_psi: float
+    control_phi: float
+    control_V: float
+    disturbance_w: float
+    estimator_confidence: float
+    guidance_state: str
+    # Add more fields as needed (thermal estimate, etc)
+
+    @staticmethod
+    def from_sim(sim) -> "LoggedState":
+        return LoggedState(
+            time=sim._time,
+            glider_x=sim.glider.x,
+            glider_y=sim.glider.y,
+            glider_h=sim.glider.h,
+            glider_V=sim.glider.V,
+            glider_phi=sim.glider.phi,
+            glider_psi=sim.glider.psi,
+            control_phi=sim.control.phi,
+            control_V=sim.control.V,
+            disturbance_w=sim.disturbance.w,
+            estimator_confidence=sim.scope_data["Estimator Confidence"][-1],
+            guidance_state=sim.scope_data["Guidance State"][-1],
+        )
+
+    def to_json(self):
+        return json.dumps(self.__dict__)
 
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
@@ -80,6 +125,17 @@ class ControlState:
 
 class SingleThermalGliderSimulator:
     def __init__(self, sim_params: SingleThermalSimParams) -> None:
+        self.sim_params = sim_params
+        # --- Logging setup ---
+        self.log_dir = os.path.join(
+            LOG_OUTPUT_DIR,
+            self.sim_params.sim_title
+            + "_"
+            + datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
+        )
+        os.makedirs(self.log_dir, exist_ok=True)
+        self.log_path = os.path.join(self.log_dir, "sim_log.jsonl")
+        self.log_file = open(self.log_path, "w")
         self.sim_params = sim_params
         self.params = sim_params.glider_model_params
         self.dt = sim_params.dt
@@ -232,6 +288,11 @@ class SingleThermalGliderSimulator:
         self.scope_data["Estimator Confidence"].append(thermal_estimate.confidence)
         self.scope_data["Guidance State"].append(guidance_state_str)
 
+        # --- Logging ---
+        log_entry = LoggedState.from_sim(self)
+        self.log_file.write(log_entry.to_json() + "\n")
+        self.log_file.flush()
+
     # --- Drawing ---
 
     def draw(self, update_oscopes: bool = True) -> None:
@@ -250,21 +311,21 @@ class SingleThermalGliderSimulator:
         )
 
     def run(self) -> None:
-        if self.sim_params.headless:
-            max_steps = int(self.sim_params.sim_runtime / self.dt)
-            for _ in range(max_steps):
-                self.step()
-                self.draw(update_oscopes=(self._step_count % 10 == 0))
-            # Finalize video if needed
-            if self.sim_params.video_save_path:
-                self.visualizer.finalize_video()
-        else:
-            try:
+        try:
+            if self.sim_params.headless:
+                max_steps = int(self.sim_params.sim_runtime / self.dt)
+                for _ in range(max_steps):
+                    self.step()
+                    self.draw(update_oscopes=(self._step_count % 10 == 0))
+                # Finalize video if needed
+                if self.sim_params.video_save_path:
+                    self.visualizer.finalize_video()
+            else:
                 while True:
                     self.step()
                     self.draw(update_oscopes=(self._step_count % 10 == 0))
-            except KeyboardInterrupt:
-                pass
+        finally:
+            self.log_file.close()
 
 
 def run_single_thermal_sim(sim_params: SingleThermalSimParams) -> None:
