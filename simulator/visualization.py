@@ -4,23 +4,15 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 
 
+from simulator.visualizer_constants import VisualizerParams
+
+
 class SingleThermalSimVisualizer:
-    def __init__(
-        self,
-        scope_labels,
-        airplane_scale,
-        plot_span_xy,
-        plot_span_z,
-        plot_estimated_thermal_params,
-        scope_window_sec,
-        headless=False,
-        video_save_path=None,
-    ):
-        # Use Agg backend for headless mode to ensure offscreen rendering
-        if headless:
+    def __init__(self, params: VisualizerParams):
+        if params.headless:
             matplotlib.use("Agg")
         self.fig = plt.figure(figsize=(16, 8))
-        if headless:
+        if params.headless:
             from matplotlib.backends.backend_agg import FigureCanvasAgg
 
             self.fig.canvas = FigureCanvasAgg(self.fig)
@@ -29,74 +21,55 @@ class SingleThermalSimVisualizer:
         )
         self.ax = self.fig.add_subplot(gs[:, 0], projection="3d")
         self.scope_axes = []
-        for i in range(len(scope_labels)):
+        for i in range(len(params.scope_labels)):
             ax = self.fig.add_subplot(gs[i, 1])
-            ax.set_ylabel(scope_labels[i])
+            ax.set_ylabel(params.scope_labels[i])
             self.scope_axes.append(ax)
         self.scope_axes[-1].set_xlabel("Time (s)")
         self.fig.tight_layout()
-        self.plot_span_xy = plot_span_xy
-        self.plot_span_z = plot_span_z
-        self.airplane_scale = airplane_scale
-        self.plot_estimated_thermal_params = plot_estimated_thermal_params
-        self.scope_window_sec = scope_window_sec
-        self.headless = headless
-        self.video_save_path = video_save_path
-        self._frames = [] if headless and video_save_path else None
+        self.params = params
+        self._frames = [] if params.headless and params.video_save_path else None
 
-    def draw(
-        self,
-        xs,
-        ys,
-        hs,
-        glider,
-        scope_data,
-        times,
-        _time,
-        _step_count,
-        draw_airplane_func,
-        thermal=None,
-        thermal_estimator=None,
-    ):
+    def draw(self, loggedstate, step_count, draw_airplane_func):
         SCOPE_UPDATE_EVERY = 10
-        update_oscopes = _step_count % SCOPE_UPDATE_EVERY == 0
-
-        # 3D plot always updates
+        update_oscopes = step_count % SCOPE_UPDATE_EVERY == 0
         self.ax.clear()
-        self.ax.plot(xs, ys, hs, linewidth=2, label="Path")
-
-        # Draw thermal core ring at current altitude
-        if thermal is not None:
-            x_c, y_c = thermal.core_center_at_height(glider.h)
-            r_th = thermal.r_th
+        self.ax.plot(
+            loggedstate.xs, loggedstate.ys, loggedstate.hs, linewidth=2, label="Path"
+        )
+        if loggedstate.thermal is not None:
+            x_c, y_c = loggedstate.thermal.core_center_at_height(loggedstate.glider_h)
+            r_th = loggedstate.thermal.r_th
             theta = np.linspace(0, 2 * np.pi, 100)
             ring_x = x_c + r_th * np.cos(theta)
             ring_y = y_c + r_th * np.sin(theta)
-            ring_z = np.full_like(theta, glider.h)
+            ring_z = np.full_like(theta, loggedstate.glider_h)
             self.ax.plot(
                 ring_x, ring_y, ring_z, "b--", linewidth=1.5, label="Thermal Core"
             )
-            # Optionally, plot core drift path (projected)
-            hs_drift = np.linspace(glider.h - 100, glider.h + 100, 20)
+            hs_drift = np.linspace(
+                loggedstate.glider_h - 100, loggedstate.glider_h + 100, 20
+            )
             drift_x = []
             drift_y = []
             for h in hs_drift:
-                xc, yc = thermal.core_center_at_height(h)
+                xc, yc = loggedstate.thermal.core_center_at_height(h)
                 drift_x.append(xc)
                 drift_y.append(yc)
             self.ax.plot(
                 drift_x, drift_y, hs_drift, "b:", linewidth=1, label="Core Drift Path"
             )
-
-        # Plot estimated thermal center and radius
-        if self.plot_estimated_thermal_params and thermal_estimator is not None:
-            thermal_estimate = thermal_estimator.get_estimate()
+        if (
+            self.params.plot_estimated_thermal_params
+            and loggedstate.thermal_estimator is not None
+        ):
+            thermal_estimate = loggedstate.thermal_estimator.get_estimate()
             est_core = thermal_estimate.get_location()
             est_Rth = thermal_estimate.get_radius()
             theta = np.linspace(0, 2 * np.pi, 100)
             est_ring_x = est_core.x + est_Rth * np.cos(theta)
             est_ring_y = est_core.y + est_Rth * np.sin(theta)
-            est_ring_z = np.full_like(theta, glider.h)
+            est_ring_z = np.full_like(theta, loggedstate.glider_h)
             self.ax.plot(
                 est_ring_x,
                 est_ring_y,
@@ -108,61 +81,63 @@ class SingleThermalSimVisualizer:
             self.ax.scatter(
                 est_core.x,
                 est_core.y,
-                glider.h,
+                loggedstate.glider_h,
                 color="red",
                 marker="x",
                 s=80,
                 label="Est Center",
             )
-
         draw_airplane_func(
             self.ax,
-            x=glider.x,
-            y=glider.y,
-            z=glider.h,
-            psi=glider.psi,
-            phi=glider.phi,
-            scale=self.airplane_scale,
+            x=loggedstate.glider_x,
+            y=loggedstate.glider_y,
+            z=loggedstate.glider_h,
+            psi=loggedstate.glider_psi,
+            phi=loggedstate.glider_phi,
+            scale=self.params.airplane_scale,
         )
-
         self.ax.set_xlabel("X (m)")
         self.ax.set_ylabel("Y (m)")
         self.ax.set_zlabel("Altitude (m)")
-        self.ax.set_title(f"Glider Simulation (t={_time:.1f}s)")
+        self.ax.set_title(f"Glider Simulation (t={loggedstate.time:.1f}s)")
         self.ax.legend()
-
-        self.ax.set_xlim(glider.x - self.plot_span_xy, glider.x + self.plot_span_xy)
-        self.ax.set_ylim(glider.y - self.plot_span_xy, glider.y + self.plot_span_xy)
-        self.ax.set_zlim(glider.h - self.plot_span_z, glider.h + self.plot_span_z)
-
+        self.ax.set_xlim(
+            loggedstate.glider_x - self.params.plot_span_xy,
+            loggedstate.glider_x + self.params.plot_span_xy,
+        )
+        self.ax.set_ylim(
+            loggedstate.glider_y - self.params.plot_span_xy,
+            loggedstate.glider_y + self.params.plot_span_xy,
+        )
+        self.ax.set_zlim(
+            loggedstate.glider_h - self.params.plot_span_z,
+            loggedstate.glider_h + self.params.plot_span_z,
+        )
         if update_oscopes:
-            # Only plot last scope_window_sec seconds
-            t_window = self.scope_window_sec
-            t_now = _time
-            times_arr = np.array(times)
+            t_window = self.params.scope_window_sec
+            t_now = loggedstate.time
+            times_arr = np.array(loggedstate.times)
             idx_start = np.searchsorted(times_arr, t_now - t_window)
-            scope_items = list(scope_data.items())
+            scope_items = list(loggedstate.scope_data.items())
             for ax, (label, data) in zip(self.scope_axes, scope_items):
                 ax.clear()
                 ax.plot(times_arr[idx_start:], np.array(data)[idx_start:])
                 ax.set_ylabel(label)
             self.scope_axes[-1].set_xlabel("Time (s)")
-
-        if self.headless:
+        if self.params.headless:
             if self._frames is not None:
-                # Save current frame to buffer for video using Agg canvas
                 self.fig.canvas.draw()
                 buf = self.fig.canvas.buffer_rgba()
                 frame = np.asarray(buf, dtype=np.uint8).reshape(
                     self.fig.canvas.get_width_height()[::-1] + (4,)
                 )
-                frame = frame[:, :, :3]  # drop alpha if you want RGB
+                frame = frame[:, :, :3]
                 self._frames.append(frame.copy())
         else:
             plt.pause(0.001)
 
     def finalize_video(self):
-        if self._frames is not None and self.video_save_path:
+        if self._frames is not None and self.params.video_save_path:
             import imageio
 
-            imageio.mimsave(self.video_save_path, self._frames, fps=10)
+            imageio.mimsave(self.params.video_save_path, self._frames, fps=10)

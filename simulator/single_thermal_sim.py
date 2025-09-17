@@ -58,30 +58,64 @@ LOG_OUTPUT_DIR = "output"
 
 @dataclass
 class LoggedState:
-    time: float
-    glider_x: float
-    glider_y: float
-    glider_h: float
-    glider_V: float
-    glider_phi: float
-    glider_psi: float
-    control_phi: float
-    control_V: float
-    disturbance_w: float
-    estimator_confidence: float
-    guidance_state: str
-    # --- Estimator fields ---
-    est_thermal_x: float = None
-    est_thermal_y: float = None
-    est_thermal_strength: float = None
-    est_thermal_radius: float = None
-    est_thermal_height: float = None
-    est_thermal_sigma: float = None
-    # Add more as needed
+    def __init__(
+        self,
+        time,
+        glider_x,
+        glider_y,
+        glider_h,
+        glider_V,
+        glider_phi,
+        glider_psi,
+        control_phi,
+        control_V,
+        disturbance_w,
+        estimator_confidence,
+        guidance_state,
+        est_thermal_x=None,
+        est_thermal_y=None,
+        est_thermal_strength=None,
+        est_thermal_radius=None,
+        est_thermal_height=None,
+        est_thermal_sigma=None,
+        xs=None,
+        ys=None,
+        hs=None,
+        times=None,
+        scope_data=None,
+        airplane=None,
+        thermal=None,
+        thermal_estimator=None,
+    ):
+        self.time = time
+        self.glider_x = glider_x
+        self.glider_y = glider_y
+        self.glider_h = glider_h
+        self.glider_V = glider_V
+        self.glider_phi = glider_phi
+        self.glider_psi = glider_psi
+        self.control_phi = control_phi
+        self.control_V = control_V
+        self.disturbance_w = disturbance_w
+        self.estimator_confidence = estimator_confidence
+        self.guidance_state = guidance_state
+        self.est_thermal_x = est_thermal_x
+        self.est_thermal_y = est_thermal_y
+        self.est_thermal_strength = est_thermal_strength
+        self.est_thermal_radius = est_thermal_radius
+        self.est_thermal_height = est_thermal_height
+        self.est_thermal_sigma = est_thermal_sigma
+        self.xs = xs
+        self.ys = ys
+        self.hs = hs
+        self.times = times
+        self.scope_data = scope_data
+        self.airplane = airplane
+        self.thermal = thermal
+        self.thermal_estimator = thermal_estimator
 
     @staticmethod
     def from_sim(sim) -> "LoggedState":
-        # Try to extract estimator fields, fallback to None if not available
         est = sim.thermal_estimator.get_estimate()
         est_x = getattr(est, "x", None)
         est_y = getattr(est, "y", None)
@@ -108,10 +142,31 @@ class LoggedState:
             est_thermal_radius=est_radius,
             est_thermal_height=est_height,
             est_thermal_sigma=est_sigma,
+            xs=sim.xs,
+            ys=sim.ys,
+            hs=sim.hs,
+            times=sim.times,
+            scope_data=sim.scope_data,
+            airplane=sim.glider,
+            thermal=sim.thermal,
+            thermal_estimator=sim.thermal_estimator,
         )
 
     def to_json(self):
-        return json.dumps(self.__dict__)
+        d = self.__dict__.copy()
+        # Remove non-serializable fields for logging
+        for k in [
+            "xs",
+            "ys",
+            "hs",
+            "times",
+            "scope_data",
+            "airplane",
+            "thermal",
+            "thermal_estimator",
+        ]:
+            d.pop(k, None)
+        return json.dumps(d)
 
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
@@ -194,8 +249,10 @@ class SingleThermalGliderSimulator:
             "Guidance State": ["Cruise"],
         }
 
+        from simulator.visualizer_constants import VisualizerParams
+
         scope_labels = list(self.scope_data.keys())
-        self.visualizer = SingleThermalSimVisualizer(
+        vis_params = VisualizerParams(
             scope_labels=scope_labels,
             airplane_scale=AIRPLANE_SCALE,
             plot_span_xy=PLOT_SPAN_XY,
@@ -205,6 +262,7 @@ class SingleThermalGliderSimulator:
             headless=sim_params.headless,
             video_save_path=sim_params.video_save_path,
         )
+        self.visualizer = SingleThermalSimVisualizer(vis_params)
         if not sim_params.headless:
             self.visualizer.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
@@ -250,22 +308,16 @@ class SingleThermalGliderSimulator:
     # --- Sim loop ---
 
     def step(self) -> None:
-        # --- Glider step ---
         if self.thermal is not None:
             uplift = self.thermal.get_thermal_uplift(
                 self.glider.x, self.glider.y, self.glider.h
             )
         else:
             uplift = 0.0
-
         self.disturbance.w = uplift
-
-        # Use glider position as measurement location, and measured uplift as measurement
         location = WorldFrameCoordinate(self.glider.x, self.glider.y)
         self.thermal_estimator.step(uplift, location)
         thermal_estimate = self.thermal_estimator.get_estimate()
-
-        # Update vehicle state estimator
         self.vehicle_state_estimator.update(
             glider_position=location,
             true_airspeed=self.glider.V,
@@ -273,34 +325,23 @@ class SingleThermalGliderSimulator:
             dt=self.dt,
         )
         vehicle_state = self.vehicle_state_estimator.get_state()
-
-        # Guidance state machine integration
         origin_wp = WorldFrameCoordinate(0.0, 0.0)
         target_wp = WorldFrameCoordinate(1000.0, 0.0)
-
-        # Control Law Implementation
         control = self.guidance_sm.step(
             vehicle_state, thermal_estimate, origin_wp, target_wp
         )
         self.control.phi = control.phi
         self.control.V = control.V
         guidance_state_str = str(self.guidance_sm.get_state())
-
         if self.manual_mode:
-            # Manual mode: use WASD controls
             self.control.phi = self.ctrl_state.roll_rad
             self.control.V = self.ctrl_state.airspeed_ms
-
         self.glider.step(self.dt, self.control, self.disturbance)
-
         self.xs.append(self.glider.x)
         self.ys.append(self.glider.y)
         self.hs.append(self.glider.h)
-
         self._time += self.dt
         self._step_count += 1
-
-        # Store for time-domain plots
         self.times.append(self._time)
         self.scope_data["Altitude (m)"].append(self.glider.h)
         self.scope_data["Airspeed (m/s)"].append(self.glider.V)
@@ -308,27 +349,18 @@ class SingleThermalGliderSimulator:
         self.scope_data["Uplift Speed (m/s)"].append(uplift)
         self.scope_data["Estimator Confidence"].append(thermal_estimate.confidence)
         self.scope_data["Guidance State"].append(guidance_state_str)
-
-        # --- Logging ---
         log_entry = LoggedState.from_sim(self)
         self.log_file.write(log_entry.to_json() + "\n")
         self.log_file.flush()
+        self._last_loggedstate = log_entry
 
     # --- Drawing ---
 
     def draw(self, update_oscopes: bool = True) -> None:
         self.visualizer.draw(
-            xs=self.xs,
-            ys=self.ys,
-            hs=self.hs,
-            glider=self.glider,
-            scope_data=self.scope_data,
-            times=self.times,
-            _time=self._time,
-            _step_count=self._step_count,
+            self._last_loggedstate,
+            step_count=self._step_count,
             draw_airplane_func=draw_airplane,
-            thermal=self.thermal,
-            thermal_estimator=self.thermal_estimator,
         )
 
     def run(self) -> None:
