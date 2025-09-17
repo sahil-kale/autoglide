@@ -70,10 +70,25 @@ class LoggedState:
     disturbance_w: float
     estimator_confidence: float
     guidance_state: str
-    # Add more fields as needed (thermal estimate, etc)
+    # --- Estimator fields ---
+    est_thermal_x: float = None
+    est_thermal_y: float = None
+    est_thermal_strength: float = None
+    est_thermal_radius: float = None
+    est_thermal_height: float = None
+    est_thermal_sigma: float = None
+    # Add more as needed
 
     @staticmethod
     def from_sim(sim) -> "LoggedState":
+        # Try to extract estimator fields, fallback to None if not available
+        est = sim.thermal_estimator.get_estimate()
+        est_x = getattr(est, "x", None)
+        est_y = getattr(est, "y", None)
+        est_strength = getattr(est, "strength", None)
+        est_radius = getattr(est, "radius", None)
+        est_height = getattr(est, "height", None)
+        est_sigma = getattr(est, "sigma", None)
         return LoggedState(
             time=sim._time,
             glider_x=sim.glider.x,
@@ -87,6 +102,12 @@ class LoggedState:
             disturbance_w=sim.disturbance.w,
             estimator_confidence=sim.scope_data["Estimator Confidence"][-1],
             guidance_state=sim.scope_data["Guidance State"][-1],
+            est_thermal_x=est_x,
+            est_thermal_y=est_y,
+            est_thermal_strength=est_strength,
+            est_thermal_radius=est_radius,
+            est_thermal_height=est_height,
+            est_thermal_sigma=est_sigma,
         )
 
     def to_json(self):

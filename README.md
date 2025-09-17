@@ -4,7 +4,7 @@ A short side-quest-research-project to see if I can make a glider locate and tra
 ![AutoGlide circling in a thermal](sim_demo.png)
 
 ## Video
-See [this circling demo video](circling_demo.mp4) of the glider centering in a thermal.
+![Glider Simulation](circling_demo.gif)
 
 ## Overview
 TODO:
