@@ -24,11 +24,20 @@ from glider_model.model import (
     GliderKinematicModelDisturbance,
     GliderOpenLoopKinematicModel,
 )
-from thermal_model.thermal_model import ThermalModel
+from thermal_model.thermal_model import ThermalModel, ThermalModelParams
 from thermal_estimator.thermal_estimator import ThermalEstimator
 from utils.location import WorldFrameCoordinate
 from controller.guidance_state_machine import GuidanceStateMachine, GuidanceState
 from simulator.utils.airplane_glyph import draw_airplane
+
+
+@dataclass
+class SingleThermalSimParams:
+    glider_model_params: GliderModelParams
+    thermal_model_params: ThermalModelParams
+    dt: float = 0.1  # Default matches SIM_DT
+    manual_mode: bool = False
+    initial_altitude: float = 300.0
 
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
@@ -62,25 +71,23 @@ class ControlState:
     airspeed_ms: float
 
 
-class SingleThermalGliderSimulator:
-    def __init__(
-        self,
-        params: GliderModelParams,
-        dt: float = SIM_DT,
-        thermal: ThermalModel = None,
-        manual_mode: bool = False,
-    ) -> None:
-        self.params = params
-        self.dt = dt
+import dataclasses
 
-        self.glider = GliderOpenLoopKinematicModel(params)
+
+class SingleThermalGliderSimulator:
+    def __init__(self, sim_params: SingleThermalSimParams) -> None:
+        self.sim_params = sim_params
+        self.params = sim_params.glider_model_params
+        self.dt = sim_params.dt
+
+        self.glider = GliderOpenLoopKinematicModel(self.params)
         self.control = GliderKinematicModelControl(
-            roll_angle=0.0, airspeed=params.V_star
+            roll_angle=0.0, airspeed=self.params.V_star
         )
         self.disturbance = GliderKinematicModelDisturbance(
             thermal_uplift=0.0, wind_x=0.0, wind_y=0.0
         )
-        self.ctrl_state = ControlState(roll_rad=0.0, airspeed_ms=params.V_star)
+        self.ctrl_state = ControlState(roll_rad=0.0, airspeed_ms=self.params.V_star)
 
         self.xs = [self.glider.x]
         self.ys = [self.glider.y]
@@ -131,15 +138,15 @@ class SingleThermalGliderSimulator:
         self.thermal_estimator = ThermalEstimator(num_samples_to_buffer=50)
         self._step_count = 0
         self._time = 0.0
-        self.thermal = thermal
+        self.thermal = ThermalModel(params=sim_params.thermal_model_params)
 
         # --- Guidance State Machine ---
         self.guidance_sm = GuidanceStateMachine(
             thermal_confidence_probe_threshold=0.3,
             thermal_confidence_circle_threshold=0.5,
-            glider_model_params=params,
+            glider_model_params=self.params,
         )
-        self.manual_mode = manual_mode
+        self.manual_mode = sim_params.manual_mode
 
     # --- Event handling ---
 
@@ -331,14 +338,19 @@ class SingleThermalGliderSimulator:
             pass
 
 
-def main() -> None:
+def run_single_thermal_sim(sim_params: SingleThermalSimParams) -> None:
+    sim = SingleThermalGliderSimulator(sim_params)
+    sim.run()
+
+
+if __name__ == "__main__":
     # Load kinematic model parameters from JSON
     with open(
         os.path.join(os.path.dirname(__file__), "../ask21_kinematic_model.json"), "r"
     ) as f:
         model_params = json.load(f)
 
-    params = GliderModelParams(
+    glider_params = GliderModelParams(
         V_star=model_params["V_star"],
         V_stall=model_params["V_stall"],
         s_min=model_params["s_min"],
@@ -349,27 +361,17 @@ def main() -> None:
         vel_tau=0.2,  # s
     )
 
-    # Example thermal model parameters (can be tuned or loaded from config)
-    thermal = ThermalModel(
-        w_max=7.0,
-        r_th=70.0,
-        x_th=100.0,
-        y_th=50.0,
-        V_e=1.0,
-        kx=0.03,
-        ky=-0.02,
-        core_center_random_noise_std=1.5,
-    )
-
     parser = argparse.ArgumentParser(description="Single Thermal Glider Simulator")
     parser.add_argument("--manual", action="store_true", help="Enable manual WASD mode")
+    # Optionally, add more CLI args for param sweeps here
     args = parser.parse_args()
 
-    sim = SingleThermalGliderSimulator(
-        params=params, dt=SIM_DT, thermal=thermal, manual_mode=args.manual
+    thermal_params = ThermalModelParams()
+    sim_params = SingleThermalSimParams(
+        glider_model_params=glider_params,
+        thermal_model_params=thermal_params,
+        dt=SIM_DT,
+        manual_mode=args.manual,
+        initial_altitude=300.0,
     )
-    sim.run()
-
-
-if __name__ == "__main__":
-    main()
+    run_single_thermal_sim(sim_params)

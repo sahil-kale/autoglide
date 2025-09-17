@@ -1,26 +1,45 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (import registers 3D projection)
+from dataclasses import dataclass
+
+
+# --- Parameterization for Monte-Carlo Simulations ---
+@dataclass
+class ThermalModelParams:
+    w_max: float = 7.0
+    r_th: float = 70.0
+    x_th: float = 100.0
+    y_th: float = 50.0
+    V_e: float = 1.0
+    kx: float = 0.03
+    ky: float = -0.02
+    core_center_random_noise_std: float = 1.5
 
 
 class ThermalModel:
     def __init__(
-        self, w_max, r_th, x_th, y_th, V_e, kx, ky, core_center_random_noise_std
+        self,
+        params: "ThermalModelParams" = None,
     ):
-        self.w_max = w_max  # Maximum thermal uplift (m/s)
-        self.r_th = r_th  # Thermal radius (m)
-        self.x_th = x_th  # Thermal center x position at h=0 (m)
-        self.y_th = y_th  # Thermal center y position at h=0 (m)
-        self.V_e = V_e  # Base sink rate (m/s), positive downwards
-        self.kx = kx  # Core x drift per meter altitude (m/m)
-        self.ky = ky  # Core y drift per meter altitude (m/m)
+        assert params is not None, "ThermalModelParams must be provided."
+
+        self.w_max = params.w_max
+        self.r_th = params.r_th
+        self.x_th = params.x_th
+        self.y_th = params.y_th
+        self.V_e = params.V_e
+        self.kx = params.kx
+        self.ky = params.ky
+        self.core_center_random_noise_std = params.core_center_random_noise_std
 
         self.core_center_random_noise_mean = 0.0  # always zero mean
-        self.core_center_random_noise_std = core_center_random_noise_std  # std dev of random noise added to core center (m)
 
-        assert self.w_max > 0, "w_max must be positive."
-        assert self.r_th > 1, "r_th must be positive and greater than 1."
-        assert self.V_e >= 0, "V_e must be non-negative."
+        assert self.w_max is not None and self.w_max > 0, "w_max must be positive."
+        assert (
+            self.r_th is not None and self.r_th > 1
+        ), "r_th must be positive and greater than 1."
+        assert self.V_e is not None and self.V_e >= 0, "V_e must be non-negative."
 
     def core_center_at_height(self, h):
         # Linear drift of core center with altitude
