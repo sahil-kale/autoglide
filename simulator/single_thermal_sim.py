@@ -9,10 +9,7 @@ from typing import List
 import argparse
 import numpy as np
 import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (registers 3D projection)
-from mpl_toolkits.mplot3d.art3d import Line3DCollection
+import numpy as np
 
 # Ensure package root is on path (one level up from this file)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,6 +26,7 @@ from thermal_estimator.thermal_estimator import ThermalEstimator
 from utils.location import WorldFrameCoordinate
 from controller.guidance_state_machine import GuidanceStateMachine, GuidanceState
 from simulator.utils.airplane_glyph import draw_airplane
+from simulator.visualization import SingleThermalSimVisualizer
 
 
 @dataclass
@@ -119,20 +117,17 @@ class SingleThermalGliderSimulator:
             "Guidance State": ["Cruise"],
         }
 
-        self.fig = plt.figure(figsize=(16, 8))
-        gs = gridspec.GridSpec(
-            6, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1, 1, 1]
-        )
-        self.ax = self.fig.add_subplot(gs[:, 0], projection="3d")
-        self.scope_axes = []
         scope_labels = list(self.scope_data.keys())
-        for i in range(len(scope_labels)):
-            ax = self.fig.add_subplot(gs[i, 1])
-            ax.set_ylabel(scope_labels[i])
-            self.scope_axes.append(ax)
-        self.scope_axes[-1].set_xlabel("Time (s)")
-        self.fig.tight_layout()
-        self.fig.canvas.mpl_connect("key_press_event", self._on_key)
+        self.visualizer = SingleThermalSimVisualizer(
+            scope_labels=scope_labels,
+            airplane_scale=AIRPLANE_SCALE,
+            plot_span_xy=PLOT_SPAN_XY,
+            plot_span_z=PLOT_SPAN_Z,
+            plot_estimated_thermal_params=PLOT_ESTIMATED_THERMAL_PARAMS,
+            scope_window_sec=SCOPE_WINDOW_SEC,
+        )
+        # Connect key event to the visualizer's figure
+        self.visualizer.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
         # --- Estimator ---
         self.thermal_estimator = ThermalEstimator(num_samples_to_buffer=50)
@@ -238,95 +233,19 @@ class SingleThermalGliderSimulator:
     # --- Drawing ---
 
     def draw(self, update_oscopes: bool = True) -> None:
-        self.ax.clear()
-
-        self.ax.plot(self.xs, self.ys, self.hs, linewidth=2, label="Path")
-
-        # Draw thermal core ring at current altitude
-        if self.thermal is not None:
-            x_c, y_c = self.thermal.core_center_at_height(self.glider.h)
-            r_th = self.thermal.r_th
-            theta = np.linspace(0, 2 * np.pi, 100)
-            ring_x = x_c + r_th * np.cos(theta)
-            ring_y = y_c + r_th * np.sin(theta)
-            ring_z = np.full_like(theta, self.glider.h)
-            self.ax.plot(
-                ring_x, ring_y, ring_z, "b--", linewidth=1.5, label="Thermal Core"
-            )
-
-            # Optionally, plot core drift path (projected)
-            hs_drift = np.linspace(self.glider.h - 100, self.glider.h + 100, 20)
-            drift_x = []
-            drift_y = []
-            for h in hs_drift:
-                xc, yc = self.thermal.core_center_at_height(h)
-                drift_x.append(xc)
-                drift_y.append(yc)
-            self.ax.plot(
-                drift_x, drift_y, hs_drift, "b:", linewidth=1, label="Core Drift Path"
-            )
-
-        # Plot estimated thermal center and radius
-        if PLOT_ESTIMATED_THERMAL_PARAMS:
-            thermal_estimate = self.thermal_estimator.get_estimate()
-            est_core = thermal_estimate.get_location()
-            est_Rth = thermal_estimate.get_radius()
-            theta = np.linspace(0, 2 * np.pi, 100)
-            est_ring_x = est_core.x + est_Rth * np.cos(theta)
-            est_ring_y = est_core.y + est_Rth * np.sin(theta)
-            est_ring_z = np.full_like(theta, self.glider.h)
-            self.ax.plot(
-                est_ring_x,
-                est_ring_y,
-                est_ring_z,
-                "r--",
-                linewidth=2,
-                label="Estimated Core",
-            )
-            self.ax.scatter(
-                est_core.x,
-                est_core.y,
-                self.glider.h,
-                color="red",
-                marker="x",
-                s=80,
-                label="Est Center",
-            )
-
-        draw_airplane(
-            self.ax,
-            x=self.glider.x,
-            y=self.glider.y,
-            z=self.glider.h,
-            psi=self.glider.psi,
-            phi=self.glider.phi,
-            scale=AIRPLANE_SCALE,
+        self.visualizer.draw(
+            xs=self.xs,
+            ys=self.ys,
+            hs=self.hs,
+            glider=self.glider,
+            scope_data=self.scope_data,
+            times=self.times,
+            _time=self._time,
+            _step_count=self._step_count,
+            draw_airplane_func=draw_airplane,
+            thermal=self.thermal,
+            thermal_estimator=self.thermal_estimator,
         )
-
-        self.ax.set_xlabel("X (m)")
-        self.ax.set_ylabel("Y (m)")
-        self.ax.set_zlabel("Altitude (m)")
-        self.ax.set_title(f"Glider Simulation (t={self._time:.1f}s)")
-        self.ax.legend()
-
-        self.ax.set_xlim(self.glider.x - PLOT_SPAN_XY, self.glider.x + PLOT_SPAN_XY)
-        self.ax.set_ylim(self.glider.y - PLOT_SPAN_XY, self.glider.y + PLOT_SPAN_XY)
-        self.ax.set_zlim(self.glider.h - PLOT_SPAN_Z, self.glider.h + PLOT_SPAN_Z)
-
-        if update_oscopes:
-            # Only plot last SCOPE_WINDOW_SEC seconds
-            t_window = SCOPE_WINDOW_SEC
-            t_now = self._time
-            times_arr = np.array(self.times)
-            idx_start = np.searchsorted(times_arr, t_now - t_window)
-            scope_items = list(self.scope_data.items())
-            for ax, (label, data) in zip(self.scope_axes, scope_items):
-                ax.clear()
-                ax.plot(times_arr[idx_start:], np.array(data)[idx_start:])
-                ax.set_ylabel(label)
-            self.scope_axes[-1].set_xlabel("Time (s)")
-
-        plt.pause(0.001)
 
     def run(self) -> None:
         try:
