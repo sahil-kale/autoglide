@@ -27,6 +27,13 @@ from utils.location import WorldFrameCoordinate
 from controller.guidance_state_machine import GuidanceStateMachine, GuidanceState
 from simulator.utils.airplane_glyph import draw_airplane
 from simulator.visualization import SingleThermalSimVisualizer
+from vehicle_state_estimator.vehicle_state_estimator import (
+    VehicleState,
+    VehicleStateEstimatorPassthrough,
+)
+
+import dataclasses
+from utils.vector import Vector2D
 
 
 @dataclass
@@ -36,6 +43,9 @@ class SingleThermalSimParams:
     dt: float = 0.1  # Default matches SIM_DT
     manual_mode: bool = False
     initial_altitude: float = 300.0
+    headless: bool = False
+    sim_runtime: float = 60.0  # seconds, only used if headless
+    video_save_path: str = None  # only used if headless
 
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
@@ -60,16 +70,12 @@ PLOT_ESTIMATED_THERMAL_PARAMS = True
 
 # --- Oscilloscope plot settings ---
 SCOPE_WINDOW_SEC: float = 30.0  # seconds to show in scope plots
-SCOPE_UPDATE_EVERY: int = 10  # update scope plots every N frames
 
 
 @dataclass
 class ControlState:
     roll_rad: float
     airspeed_ms: float
-
-
-import dataclasses
 
 
 class SingleThermalGliderSimulator:
@@ -93,12 +99,6 @@ class SingleThermalGliderSimulator:
         self.times = [0.0]
 
         # Vehicle state estimator
-        from vehicle_state_estimator.vehicle_state_estimator import (
-            VehicleState,
-            VehicleStateEstimatorPassthrough,
-        )
-        from utils.vector import Vector2D
-
         initial_state = VehicleState(
             position=WorldFrameCoordinate(self.glider.x, self.glider.y),
             airspeed=self.glider.V,
@@ -125,9 +125,11 @@ class SingleThermalGliderSimulator:
             plot_span_z=PLOT_SPAN_Z,
             plot_estimated_thermal_params=PLOT_ESTIMATED_THERMAL_PARAMS,
             scope_window_sec=SCOPE_WINDOW_SEC,
+            headless=sim_params.headless,
+            video_save_path=sim_params.video_save_path,
         )
-        # Connect key event to the visualizer's figure
-        self.visualizer.fig.canvas.mpl_connect("key_press_event", self._on_key)
+        if not sim_params.headless:
+            self.visualizer.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
         # --- Estimator ---
         self.thermal_estimator = ThermalEstimator(num_samples_to_buffer=50)
@@ -248,13 +250,21 @@ class SingleThermalGliderSimulator:
         )
 
     def run(self) -> None:
-        try:
-            while True:
+        if self.sim_params.headless:
+            max_steps = int(self.sim_params.sim_runtime / self.dt)
+            for _ in range(max_steps):
                 self.step()
-                # Always update 3D plot for smoothness
                 self.draw(update_oscopes=(self._step_count % 10 == 0))
-        except KeyboardInterrupt:
-            pass
+            # Finalize video if needed
+            if self.sim_params.video_save_path:
+                self.visualizer.finalize_video()
+        else:
+            try:
+                while True:
+                    self.step()
+                    self.draw(update_oscopes=(self._step_count % 10 == 0))
+            except KeyboardInterrupt:
+                pass
 
 
 def run_single_thermal_sim(sim_params: SingleThermalSimParams) -> None:
@@ -282,6 +292,21 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Single Thermal Glider Simulator")
     parser.add_argument("--manual", action="store_true", help="Enable manual WASD mode")
+    parser.add_argument(
+        "--headless", action="store_true", help="Run in headless mode (no GUI)"
+    )
+    parser.add_argument(
+        "--sim-runtime",
+        type=float,
+        default=30.0,
+        help="Simulation runtime in seconds (headless only)",
+    )
+    parser.add_argument(
+        "--video-save-path",
+        type=str,
+        default=None,
+        help="Path to save video (headless only)",
+    )
     # Optionally, add more CLI args for param sweeps here
     args = parser.parse_args()
 
@@ -292,5 +317,8 @@ if __name__ == "__main__":
         dt=SIM_DT,
         manual_mode=args.manual,
         initial_altitude=300.0,
+        headless=args.headless,
+        sim_runtime=args.sim_runtime,
+        video_save_path=args.video_save_path,
     )
     run_single_thermal_sim(sim_params)

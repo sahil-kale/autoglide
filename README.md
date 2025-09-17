@@ -1,6 +1,9 @@
 # AutoGlide
 A short side-quest-research-project to see if I can make a glider locate and track a thermal updraft autonomously using only onboard sensors and compute.
 
+## Video
+See [this circling demo video](circling_demo.mp4) of the glider centering in a thermal.
+
 ## Overview
 TODO:
 - Glider Model

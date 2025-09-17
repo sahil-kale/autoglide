@@ -1,3 +1,5 @@
+
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
@@ -12,8 +14,16 @@ class SingleThermalSimVisualizer:
         plot_span_z,
         plot_estimated_thermal_params,
         scope_window_sec,
+        headless=False,
+        video_save_path=None,
     ):
+        # Use Agg backend for headless mode to ensure offscreen rendering
+        if headless:
+            matplotlib.use('Agg')
         self.fig = plt.figure(figsize=(16, 8))
+        if headless:
+            from matplotlib.backends.backend_agg import FigureCanvasAgg
+            self.fig.canvas = FigureCanvasAgg(self.fig)
         gs = gridspec.GridSpec(
             6, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1, 1, 1]
         )
@@ -30,6 +40,9 @@ class SingleThermalSimVisualizer:
         self.airplane_scale = airplane_scale
         self.plot_estimated_thermal_params = plot_estimated_thermal_params
         self.scope_window_sec = scope_window_sec
+        self.headless = headless
+        self.video_save_path = video_save_path
+        self._frames = [] if headless and video_save_path else None
 
     def draw(
         self,
@@ -135,4 +148,21 @@ class SingleThermalSimVisualizer:
                 ax.set_ylabel(label)
             self.scope_axes[-1].set_xlabel("Time (s)")
 
-        plt.pause(0.001)
+        if self.headless:
+            if self._frames is not None:
+                # Save current frame to buffer for video using Agg canvas
+                self.fig.canvas.draw()
+                buf = self.fig.canvas.buffer_rgba()
+                frame = np.asarray(buf, dtype=np.uint8).reshape(
+                    self.fig.canvas.get_width_height()[::-1] + (4,)
+                )
+                frame = frame[:, :, :3]  # drop alpha if you want RGB
+                self._frames.append(frame.copy())
+        else:
+            plt.pause(0.001)
+
+    def finalize_video(self):
+        if self._frames is not None and self.video_save_path:
+            import imageio
+
+            imageio.mimsave(self.video_save_path, self._frames, fps=10)
