@@ -1,4 +1,3 @@
-
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -19,10 +18,11 @@ class SingleThermalSimVisualizer:
     ):
         # Use Agg backend for headless mode to ensure offscreen rendering
         if headless:
-            matplotlib.use('Agg')
+            matplotlib.use("Agg")
         self.fig = plt.figure(figsize=(16, 8))
         if headless:
             from matplotlib.backends.backend_agg import FigureCanvasAgg
+
             self.fig.canvas = FigureCanvasAgg(self.fig)
         gs = gridspec.GridSpec(
             6, 2, width_ratios=[2, 1], height_ratios=[1, 1, 1, 1, 1, 1]
