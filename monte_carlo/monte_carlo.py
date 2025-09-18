@@ -63,7 +63,7 @@ def run_monte_carlo_simulations():
         k_v=model_params["k_v"],
         alpha_n=model_params["alpha_n"],
         initial_altitude=300.0,  # m
-        roll_tau=0.5,  # s
+        roll_tau=0.6,  # s
         vel_tau=0.5,  # s
     )
 

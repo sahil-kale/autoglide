@@ -227,6 +227,7 @@ class SingleThermalGliderSimulator:
             glider_h=self.glider.h,
             glider_V=self.glider.V,
             glider_phi=self.glider.phi,
+            glider_phi_deg=np.rad2deg(self.glider.phi),
             glider_psi=self.glider.psi,
             control_phi=self.control.phi,
             control_V=self.control.V,
@@ -284,7 +285,7 @@ if __name__ == "__main__":
         k_v=model_params["k_v"],
         alpha_n=model_params["alpha_n"],
         initial_altitude=300.0,  # m
-        roll_tau=0.5,  # s
+        roll_tau=0.6,  # s
         vel_tau=0.5,  # s
     )
 

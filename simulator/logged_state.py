@@ -10,6 +10,7 @@ class LoggedState:
     glider_h: float
     glider_V: float
     glider_phi: float
+    glider_phi_deg: float
     glider_psi: float
     control_phi: float
     control_V: float
@@ -33,6 +34,7 @@ class LoggedState:
             glider_h=d.get("glider_h", 0.0),
             glider_V=d.get("glider_V", 0.0),
             glider_phi=d.get("glider_phi", 0.0),
+            glider_phi_deg=d.get("glider_phi_deg", 0.0),
             glider_psi=d.get("glider_psi", 0.0),
             control_phi=d.get("control_phi", 0.0),
             control_V=d.get("control_V", 0.0),

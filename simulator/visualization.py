@@ -180,7 +180,7 @@ class SingleThermalSimVisualizer:
         label_map = {
             "Altitude (m)": "glider_h",
             "Airspeed (m/s)": "glider_V",
-            "Roll (deg)": "glider_phi",
+            "Roll (deg)": "glider_phi_deg",
             "Uplift Speed (m/s)": "disturbance_w",
             "Estimator Confidence": "estimator_confidence",
             "Guidance State": "guidance_state",
