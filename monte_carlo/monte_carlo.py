@@ -35,13 +35,12 @@ def run_thermal_center_offset_analysis(
     for i in range(NUM_SIMS_THERMAL_CENTER_OFFSET):
         x_offset = np.random.normal(x_offset_mu, x_offset_sigma)
         y_offset = np.random.normal(y_offset_mu, y_offset_sigma)
+        sim_params.thermal_model_params.x_c = x_offset
         sim_params.thermal_model_params.y_c = y_offset
-        sim_params.sim_title = (
-            f"thermal_center_offset_{i+1:02d}_yoffset_{y_offset:.1f}m"
-        )
+        sim_params.sim_title = f"thermal_offset_x_{x_offset:.1f}_y_{y_offset:.1f}"
         sim_params.video_save_path = f"{output_dir}/{sim_params.sim_title}/video.mp4"
         print(
-            f"Running simulation {i+1}/{NUM_SIMS_THERMAL_CENTER_OFFSET} with thermal x offset: {x_offset:.1f} m"
+            f"Running simulation {i+1}/{NUM_SIMS_THERMAL_CENTER_OFFSET} with thermal x offset: {x_offset:.1f} m, y offset: {y_offset:.1f} m"
         )
         sim = SingleThermalGliderSimulator(sim_params)
         sim.run()
