@@ -41,7 +41,7 @@ class GuidanceStateMachine:
             lookahead_distance=20.0, glider_model_params=glider_model_params
         )
 
-        self.probe_control_law = ProbeControlLaw(roll_angle_deg=45.0)
+        self.probe_control_law = ProbeControlLaw(roll_angle_deg=60.0)
 
         self.state_to_control_law = {
             GuidanceState.CRUISE: self.cruise_control_law,

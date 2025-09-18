@@ -35,8 +35,9 @@ class ReducedOrderGaussianThermalModel:
 
 
 class ThermalEstimator:
-    def __init__(self, num_samples_to_buffer, debug=False):
+    def __init__(self, num_samples_to_buffer, variometer_noise_std=0.5, debug=False):
         self.num_samples_to_buffer = num_samples_to_buffer
+        self.variometer_noise_std = variometer_noise_std
         self.samples = []
         self.estimate = ThermalEstimate(1.0, 50.0, WorldFrameCoordinate(0.0, 0.0), 0.0)
         self.prev_params = [
@@ -150,11 +151,12 @@ class ThermalEstimator:
             predicted_w = gaussian_model.thermal_model_estimate_updraft(loc)
 
             errors.append(meas - predicted_w)
-
         errors = np.array(errors)
-        variance_error = np.var(errors)
 
-        self.confidence = 1.0 / (1.0 + variance_error)
+        # Chi-squared test of significane. Basically asking how likely is it that the
+        # observed errors are due to measurement noise alone.
+        chi2 = np.mean(errors**2) / (self.variometer_noise_std**2)
+        self.confidence = 1 / (1 + chi2)
         # self.lambda_multiplier = self.confidence
 
     def get_estimate(self):

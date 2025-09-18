@@ -124,7 +124,9 @@ class SingleThermalGliderSimulator:
             self.visualizer.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
         # --- Estimator ---
-        self.thermal_estimator = ThermalEstimator(num_samples_to_buffer=50)
+        self.thermal_estimator = ThermalEstimator(
+            variometer_noise_std=0.5, num_samples_to_buffer=50
+        )
         self._step_count = 0
         self._time = 0.0
         self.thermal = ThermalModel(params=sim_params.thermal_model_params)
