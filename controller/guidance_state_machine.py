@@ -81,10 +81,6 @@ class GuidanceStateMachine:
             pass
 
         state_change = prev_state != self.state
-
-        if state_change:
-            print(f"Guidance state changed from {prev_state} to {self.state}")
-
         control_law = self.state_to_control_law[self.state]
 
         if control_law is not None:

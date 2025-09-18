@@ -9,8 +9,8 @@ from dataclasses import dataclass
 class ThermalModelParams:
     w_max: float = 7.0
     r_th: float = 70.0
-    x_th: float = 100.0
-    y_th: float = 50.0
+    x_c: float = 100.0
+    y_c: float = 50.0
     V_e: float = 1.0
     kx: float = 0.03
     ky: float = -0.02
@@ -26,8 +26,8 @@ class ThermalModel:
 
         self.w_max = params.w_max
         self.r_th = params.r_th
-        self.x_th = params.x_th
-        self.y_th = params.y_th
+        self.x_c = params.x_c
+        self.y_c = params.y_c
         self.V_e = params.V_e
         self.kx = params.kx
         self.ky = params.ky
@@ -50,8 +50,8 @@ class ThermalModel:
         eta_y = np.random.normal(
             self.core_center_random_noise_mean, self.core_center_random_noise_std
         )
-        x_c = self.x_th + self.kx * h + eta_x
-        y_c = self.y_th + self.ky * h + eta_y
+        x_c = self.x_c + self.kx * h + eta_x
+        y_c = self.y_c + self.ky * h + eta_y
         return x_c, y_c
 
     def get_thermal_uplift(self, x, y, h):
@@ -68,8 +68,8 @@ if __name__ == "__main__":
     thermal = ThermalModel(
         w_max=5.0,
         r_th=50.0,
-        x_th=0.0,
-        y_th=0.0,
+        x_c=0.0,
+        y_c=0.0,
         V_e=1.0,
         kx=0.03,
         ky=-0.02,

@@ -115,13 +115,13 @@ class ThermalEstimator:
             cost_function, initial_guess, bounds=bounds, method="Nelder-Mead"
         )
         if result.success:
-            W0, Rth, x_th, y_th = result.x
+            W0, Rth, x_c, y_c = result.x
             self.estimate.W0 = W0
             self.estimate.Rth = Rth
-            self.estimate.est_core = WorldFrameCoordinate(x_th, y_th)
+            self.estimate.est_core = WorldFrameCoordinate(x_c, y_c)
             if self.debug:
                 print(
-                    f"Estimated Parameters: W0={W0:.2f}, Rth={Rth:.2f}, x_th={x_th:.2f}, y_th={y_th:.2f}"
+                    f"Estimated Parameters: W0={W0:.2f}, Rth={Rth:.2f}, x_c={x_c:.2f}, y_c={y_c:.2f}"
                 )
         else:
             print("Optimization failed:", result.message)

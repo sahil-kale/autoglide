@@ -8,8 +8,8 @@ def test_thermal_model_init():
     model = ThermalModel(params=params)
     assert model.w_max == 5.0
     assert model.r_th == 50.0
-    assert model.x_th == 0.0
-    assert model.y_th == 0.0
+    assert model.x_c == 0.0
+    assert model.y_c == 0.0
     assert model.V_e == 1.0
     assert model.kx == 0.03
     assert model.ky == -0.02

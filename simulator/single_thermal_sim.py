@@ -56,13 +56,9 @@ class SingleThermalSimParams:
     initial_altitude: float = 300.0
     headless: bool = False
     sim_runtime: float = 60.0  # seconds, only used if headless
+    log_save_path: str = "output"
     video_save_path: str = None  # only used if headless
     sim_title: str = "default_sim"
-
-
-# --- Logging ---
-
-LOG_OUTPUT_DIR = "output"
 
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
@@ -83,10 +79,8 @@ class SingleThermalGliderSimulator:
         self.sim_params = sim_params
         # --- Logging setup ---
         self.log_dir = os.path.join(
-            LOG_OUTPUT_DIR,
-            self.sim_params.sim_title
-            + "_"
-            + datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
+            self.sim_params.log_save_path,
+            self.sim_params.sim_title,
         )
         os.makedirs(self.log_dir, exist_ok=True)
         self.log_path = os.path.join(self.log_dir, "sim_log.jsonl")
@@ -288,8 +282,8 @@ if __name__ == "__main__":
         k_v=model_params["k_v"],
         alpha_n=model_params["alpha_n"],
         initial_altitude=300.0,  # m
-        roll_tau=0.2,  # s
-        vel_tau=0.2,  # s
+        roll_tau=0.5,  # s
+        vel_tau=0.5,  # s
     )
 
     parser = argparse.ArgumentParser(description="Single Thermal Glider Simulator")
