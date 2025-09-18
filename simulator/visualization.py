@@ -134,7 +134,7 @@ class SingleThermalSimVisualizer:
         self.ax.set_xlabel("X (m)")
         self.ax.set_ylabel("Y (m)")
         self.ax.set_zlabel("Altitude (m)")
-        self.ax.set_title(f"Glider Simulation (t={loggedstate.time:.1f}s)")
+        self.ax.set_title(f"Glider Simulation (t={loggedstate.time:.1f}s)", y=0.9999)
         self.ax.legend()
         self.ax.set_xlim(
             loggedstate.glider_x - self.params.plot_span_xy,

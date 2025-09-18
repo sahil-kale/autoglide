@@ -21,6 +21,7 @@ Here are some random ideas and thoughts for extensions and future work that I wa
 - Windshear thermal models
 - Condor 2 Integration (Plug and Play with XCSoar UDP API, Virtual Joystick)
 - Variometer modelling
+- Wind estimation
 - Replay real thermal data and see how well it would do
 
 ## Intuition
