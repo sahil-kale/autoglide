@@ -34,6 +34,8 @@ def test_initial_state():
         glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
         avg_thermal_strength_threshold_cruise_to_probe=2.0,
         avg_thermal_strength_threshold_hysteresis=1.0,
+        min_probe_time_s=2.0,
+        circling_confidence_abort_threshold=0.2,
     )
     assert gsm.get_state() == GuidanceState.CRUISE
 
@@ -44,6 +46,8 @@ def test_cruise_to_probe_transition():
         glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
         avg_thermal_strength_threshold_cruise_to_probe=2.0,
         avg_thermal_strength_threshold_hysteresis=1.0,
+        min_probe_time_s=2.0,
+        circling_confidence_abort_threshold=0.2,
     )
     vehicle_state = VehicleState(
         position=DEFAULT_ORIGIN_WP,  # Not used in current logic
@@ -57,8 +61,13 @@ def test_cruise_to_probe_transition():
     gsm.step(vehicle_state, thermal_estimate, DEFAULT_ORIGIN_WP, DEFAULT_TARGET_WP)
     assert gsm.get_state() == GuidanceState.CRUISE
 
+    # Simulate thermal strength above threshold
     thermal_estimate.average_actual_thermal_strength = (
         gsm.avg_thermal_strength_threshold_cruise_to_probe
+    )
+    # Patch get_average_sampled_thermal_strength to return the updated value
+    thermal_estimate.get_average_sampled_thermal_strength = (
+        lambda: thermal_estimate.average_actual_thermal_strength
     )
     gsm.step(vehicle_state, thermal_estimate, DEFAULT_ORIGIN_WP, DEFAULT_TARGET_WP)
     assert gsm.get_state() == GuidanceState.PROBE  # Should transition to PROBE
@@ -70,8 +79,11 @@ def test_probe_to_circle_transition():
         glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
         avg_thermal_strength_threshold_cruise_to_probe=2.0,
         avg_thermal_strength_threshold_hysteresis=1.0,
+        min_probe_time_s=2.0,
+        circling_confidence_abort_threshold=0.2,
     )
     gsm.state = GuidanceState.PROBE
+    gsm.last_state_change_time = 0.0
     vehicle_state = VehicleState(
         position=DEFAULT_ORIGIN_WP,  # Not used in current logic
         airspeed=10.0,
@@ -84,7 +96,9 @@ def test_probe_to_circle_transition():
     assert (
         gsm.get_state() == GuidanceState.PROBE
     )  # Should remain in PROBE due to low confidence
-    thermal_estimate.confidence = 0.6
+
+    thermal_estimate.confidence = 0.6  # Above threshold
+    vehicle_state.time = 2.1
     gsm.step(vehicle_state, thermal_estimate, DEFAULT_ORIGIN_WP, DEFAULT_TARGET_WP)
     assert gsm.get_state() == GuidanceState.CIRCLE  # Should transition to CIRCLE
 
@@ -95,8 +109,11 @@ def test_probe_to_cruise_transition():
         glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
         avg_thermal_strength_threshold_cruise_to_probe=2.0,
         avg_thermal_strength_threshold_hysteresis=1.0,
+        min_probe_time_s=2.0,
+        circling_confidence_abort_threshold=0.2,
     )
     gsm.state = GuidanceState.PROBE
+    gsm.last_state_change_time = 0.0
     vehicle_state = VehicleState(
         position=DEFAULT_ORIGIN_WP,  # Not used in current logic
         airspeed=10.0,
@@ -107,12 +124,24 @@ def test_probe_to_cruise_transition():
     thermal_estimate = DEFAULT_THERMAL_ESTIMATE
     thermal_estimate.confidence = 0.4
     thermal_estimate.average_actual_thermal_strength = 2.0
+    thermal_estimate.get_average_sampled_thermal_strength = (
+        lambda: thermal_estimate.average_actual_thermal_strength
+    )
+    vehicle_state.time = 1.0
     gsm.step(vehicle_state, thermal_estimate, DEFAULT_ORIGIN_WP, DEFAULT_TARGET_WP)
     assert (
         gsm.get_state() == GuidanceState.PROBE
     )  # Should remain in PROBE due to sufficient avg strength
 
+    # Not enough time elapsed for min_probe_time_s
     thermal_estimate.average_actual_thermal_strength = 0.5
-    thermal_estimate.confidence = 0.4
+    vehicle_state.time = 1.5
+    gsm.step(vehicle_state, thermal_estimate, DEFAULT_ORIGIN_WP, DEFAULT_TARGET_WP)
+    assert (
+        gsm.get_state() == GuidanceState.PROBE
+    )  # Should remain in PROBE due to min_probe_time_s
+
+    # Now enough time elapsed
+    vehicle_state.time = 2.1
     gsm.step(vehicle_state, thermal_estimate, DEFAULT_ORIGIN_WP, DEFAULT_TARGET_WP)
     assert gsm.get_state() == GuidanceState.CRUISE  # Should transition back to CRUISE

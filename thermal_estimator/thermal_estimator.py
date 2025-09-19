@@ -146,9 +146,6 @@ class ThermalEstimator:
         if len(self.samples) < self.num_samples_to_buffer / 10:
             self.confidence = 0.0
             return
-        elif self.average_sample_thermal_strength < self.no_thermal_lock_threshold:
-            self.confidence = 0.0
-            return
 
         errors = []
         W0, Rth = self.estimate.W0, self.estimate.Rth

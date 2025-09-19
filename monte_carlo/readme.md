@@ -22,3 +22,6 @@ This ended up motivating a rework of the thermal estimator confidence metric (no
 
 The below GIF shows a simulation with poor thresholding logic, where the glider fails to circle the thermal effectively and leaves before exploring it properly.
 ![Glider Simulation with poor thresholding logic](poor_state_machine_criteria.gif)
+
+The below GIF shows a simulation with the improved thresholding logic, where the glider successfully probes and circles the thermal in a similar scenario.
+![Glider Simulation with improved thresholding logic](revamped_state_machine_criteria.gif)

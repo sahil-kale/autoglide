@@ -12,6 +12,7 @@ class VehicleState:
     airspeed: float
     velocity_ground: Vector2D
     heading: float  # radians, 0 = East, pi/2 = North
+    time: float  # seconds
 
     def __str__(self):
         return f"Position: ({self.position.x:.2f}, {self.position.y:.2f}), Heading: {np.degrees(self.heading):.2f} deg, Airspeed: {self.velocity_air.norm():.2f} m/s, Groundspeed: {self.velocity_ground.norm():.2f} m/s"
@@ -37,6 +38,7 @@ class VehicleState:
         assert (
             -np.pi <= self.heading <= np.pi
         ), "Heading must be in radians between -pi and pi"
+        assert self.time > 0, "Time must be positive"
 
 
 class VehicleStateEstimatorPassthrough:
@@ -63,6 +65,7 @@ class VehicleStateEstimatorPassthrough:
 
         heading = true_heading
         self.state = VehicleState(position, true_airspeed, velocity_ground, heading)
+        self.state.time += dt
         self.state.validate()
 
     def get_state(self):

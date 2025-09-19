@@ -109,6 +109,7 @@ class SingleThermalGliderSimulator:
             airspeed=self.glider.V,
             velocity_ground=Vector2D(0.0, 0.0),
             heading=self.glider.psi,
+            time=0.0,
         )
         self.vehicle_state_estimator = VehicleStateEstimatorPassthrough(initial_state)
 
@@ -136,6 +137,7 @@ class SingleThermalGliderSimulator:
             thermal_confidence_circle_threshold=0.5,
             avg_thermal_strength_threshold_cruise_to_probe=2.0,
             circling_confidence_abort_threshold=0.2,
+            min_probe_time_s=10.0,
             glider_model_params=self.params,
         )
         self.manual_mode = sim_params.manual_mode
