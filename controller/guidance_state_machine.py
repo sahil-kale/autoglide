@@ -29,6 +29,7 @@ class GuidanceStateMachine:
         avg_thermal_strength_threshold_cruise_to_probe,
         min_probe_time_s,
         circling_confidence_abort_threshold,
+        min_thermal_strength_to_circle,
         avg_thermal_strength_threshold_hysteresis=0.5,
     ):
         self.state = GuidanceState.CRUISE
@@ -40,6 +41,7 @@ class GuidanceStateMachine:
         self.avg_thermal_strength_threshold_hysteresis = (
             avg_thermal_strength_threshold_hysteresis
         )
+        self.min_thermal_strength_to_circle = min_thermal_strength_to_circle
         self.min_probe_time_s = min_probe_time_s
         self.last_state_change_time = 0.0
 
@@ -76,7 +78,17 @@ class GuidanceStateMachine:
         )
 
     def _probe_to_circle(self, vehicle_state, thermal_estimate, current_time):
-        return thermal_estimate.confidence >= self.thermal_confidence_circle_threshold
+        is_confident = (
+            thermal_estimate.confidence >= self.thermal_confidence_circle_threshold
+        )
+        is_locally_strong_enough = (
+            thermal_estimate.get_average_sampled_thermal_strength()
+            >= self.avg_thermal_strength_threshold_cruise_to_probe
+        )
+        is_core_worth_taking = (
+            thermal_estimate.get_strength() >= self.min_thermal_strength_to_circle
+        )
+        return is_confident and is_locally_strong_enough and is_core_worth_taking
 
     def _probe_to_cruise(self, vehicle_state, thermal_estimate, current_time):
         return (

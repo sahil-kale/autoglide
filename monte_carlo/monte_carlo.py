@@ -24,34 +24,40 @@ ASK21_MODEL_PATH = os.path.join(
 LOG_OUTPUT_DIR = "output/monte_carlo"
 
 
-
 import concurrent.futures
+
 
 def _run_single_sim(sim_params_dict):
     """Helper function to run a single simulation. Used for multiprocessing."""
     # Reconstruct objects from dicts (to avoid pickling issues)
-    from simulator.single_thermal_sim import SingleThermalSimParams, SingleThermalGliderSimulator
+    from simulator.single_thermal_sim import (
+        SingleThermalSimParams,
+        SingleThermalGliderSimulator,
+    )
     from glider_model.model import GliderModelParams
     from thermal_model.thermal_model import ThermalModelParams
 
-    glider_params = GliderModelParams(**sim_params_dict['glider_model_params'])
-    thermal_params = ThermalModelParams(**sim_params_dict['thermal_model_params'])
+    glider_params = GliderModelParams(**sim_params_dict["glider_model_params"])
+    thermal_params = ThermalModelParams(**sim_params_dict["thermal_model_params"])
     sim_params = SingleThermalSimParams(
         glider_model_params=glider_params,
         thermal_model_params=thermal_params,
-        headless=sim_params_dict['headless'],
-        sim_runtime=sim_params_dict['sim_runtime'],
-        log_save_path=sim_params_dict['log_save_path'],
-        sim_title=sim_params_dict['sim_title'],
-        video_save_path=sim_params_dict['video_save_path'],
+        headless=sim_params_dict["headless"],
+        sim_runtime=sim_params_dict["sim_runtime"],
+        log_save_path=sim_params_dict["log_save_path"],
+        sim_title=sim_params_dict["sim_title"],
+        video_save_path=sim_params_dict["video_save_path"],
     )
     print(sim_params.sim_title)
     sim = SingleThermalGliderSimulator(sim_params)
     sim.run()
 
-def run_thermal_center_offset_analysis(default_sim_params: SingleThermalSimParams, output_dir):
+
+def run_thermal_center_offset_analysis(
+    default_sim_params: SingleThermalSimParams, output_dir
+):
     y_offset_mu = 0.0
-    y_offset_sigma = 20.0
+    y_offset_sigma = 60.0
     x_offset_mu = 150.0
     x_offset_sigma = 10.0
 
@@ -65,25 +71,48 @@ def run_thermal_center_offset_analysis(default_sim_params: SingleThermalSimParam
         sim_params.sim_title = f"thermal_offset_x_{x_offset:.1f}_y_{y_offset:.1f}"
         sim_params.video_save_path = f"{output_dir}/{sim_params.sim_title}/video.mp4"
         # Convert params to dicts for pickling
-        sim_param_dicts.append({
-            'glider_model_params': vars(sim_params.glider_model_params),
-            'thermal_model_params': vars(sim_params.thermal_model_params),
-            'headless': sim_params.headless,
-            'sim_runtime': sim_params.sim_runtime,
-            'log_save_path': sim_params.log_save_path,
-            'sim_title': sim_params.sim_title,
-            'video_save_path': sim_params.video_save_path,
-        })
+        sim_param_dicts.append(
+            {
+                "glider_model_params": vars(sim_params.glider_model_params),
+                "thermal_model_params": vars(sim_params.thermal_model_params),
+                "headless": sim_params.headless,
+                "sim_runtime": sim_params.sim_runtime,
+                "log_save_path": sim_params.log_save_path,
+                "sim_title": sim_params.sim_title,
+                "video_save_path": sim_params.video_save_path,
+            }
+        )
 
-    print(f"Running {NUM_SIMS_THERMAL_CENTER_OFFSET} simulations with up to {MAX_PROCESSES} processes...")
-    with concurrent.futures.ProcessPoolExecutor(max_workers=MAX_PROCESSES) as executor:
-        futures = [executor.submit(_run_single_sim, sim_dict) for sim_dict in sim_param_dicts]
-        for i, future in enumerate(concurrent.futures.as_completed(futures)):
-            try:
-                future.result()
-                print(f"Simulation {i+1}/{NUM_SIMS_THERMAL_CENTER_OFFSET} completed.")
-            except Exception as e:
-                print(f"Simulation {i+1} failed: {e}")
+    print(
+        f"Running {NUM_SIMS_THERMAL_CENTER_OFFSET} simulations with up to {MAX_PROCESSES} processes..."
+    )
+    try:
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=MAX_PROCESSES
+        ) as executor:
+            futures = [
+                executor.submit(_run_single_sim, sim_dict)
+                for sim_dict in sim_param_dicts
+            ]
+            for i, future in enumerate(concurrent.futures.as_completed(futures)):
+                try:
+                    future.result()
+                    print(
+                        f"Simulation {i+1}/{NUM_SIMS_THERMAL_CENTER_OFFSET} completed."
+                    )
+                except Exception as e:
+                    print(f"Simulation {i+1} failed: {e}")
+    except KeyboardInterrupt:
+        print(
+            "KeyboardInterrupt detected! Attempting to terminate all child processes..."
+        )
+        # Attempt to shutdown the executor and cancel futures
+        executor.shutdown(wait=False, cancel_futures=True)
+        import signal
+
+        os.kill(os.getpid(), signal.SIGTERM)
+        # If above doesn't exit, force exit
+        os._exit(1)
 
 
 def run_monte_carlo_simulations():
@@ -103,8 +132,8 @@ def run_monte_carlo_simulations():
         k_v=model_params["k_v"],
         alpha_n=model_params["alpha_n"],
         initial_altitude=300.0,  # m
-        roll_tau=0.6,  # s
-        vel_tau=0.5,  # s
+        roll_tau=0.3,  # s
+        vel_tau=0.3,  # s
     )
 
     default_thermal_params = ThermalModelParams(
@@ -122,7 +151,7 @@ def run_monte_carlo_simulations():
         glider_model_params=glider_params,
         thermal_model_params=default_thermal_params,
         headless=True,
-        sim_runtime=30.0,
+        sim_runtime=60.0,
         log_save_path=output_dir,
     )
     run_thermal_center_offset_analysis(default_sim_params, output_dir)

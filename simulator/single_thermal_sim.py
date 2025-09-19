@@ -138,6 +138,7 @@ class SingleThermalGliderSimulator:
             avg_thermal_strength_threshold_cruise_to_probe=2.0,
             circling_confidence_abort_threshold=0.2,
             min_probe_time_s=10.0,
+            min_thermal_strength_to_circle=2.5,
             glider_model_params=self.params,
         )
         self.manual_mode = sim_params.manual_mode
@@ -313,6 +314,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     thermal_params = ThermalModelParams()
+    thermal_params.x_c = 150.0  # m
+    thermal_params.y_c = -18
     sim_params = SingleThermalSimParams(
         glider_model_params=glider_params,
         thermal_model_params=thermal_params,

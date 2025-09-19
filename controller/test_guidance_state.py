@@ -4,6 +4,7 @@ from vehicle_state_estimator.vehicle_state_estimator import VehicleState
 from thermal_estimator.thermal_estimator import ThermalEstimate
 from utils.location import WorldFrameCoordinate
 from utils.vector import Vector2D
+from copy import deepcopy
 
 DEFAULT_ORIGIN_WP = WorldFrameCoordinate(0.0, 0.0)
 DEFAULT_TARGET_WP = WorldFrameCoordinate(1000.0, 0.0)
@@ -27,28 +28,24 @@ DEFAULT_THERMAL_ESTIMATE = ThermalEstimate(
     average_actual_thermal_strength=0.0,
 )
 
+DEFAULT_GUIDANCE_STATE_MACHINE = GuidanceStateMachine(
+    thermal_confidence_circle_threshold=0.5,
+    glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
+    avg_thermal_strength_threshold_cruise_to_probe=2.0,
+    avg_thermal_strength_threshold_hysteresis=1.0,
+    min_probe_time_s=2.0,
+    circling_confidence_abort_threshold=0.2,
+    min_thermal_strength_to_circle=2.5,
+)
+
 
 def test_initial_state():
-    gsm = GuidanceStateMachine(
-        thermal_confidence_circle_threshold=0.5,
-        glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
-        avg_thermal_strength_threshold_cruise_to_probe=2.0,
-        avg_thermal_strength_threshold_hysteresis=1.0,
-        min_probe_time_s=2.0,
-        circling_confidence_abort_threshold=0.2,
-    )
+    gsm = deepcopy(DEFAULT_GUIDANCE_STATE_MACHINE)
     assert gsm.get_state() == GuidanceState.CRUISE
 
 
 def test_cruise_to_probe_transition():
-    gsm = GuidanceStateMachine(
-        thermal_confidence_circle_threshold=0.5,
-        glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
-        avg_thermal_strength_threshold_cruise_to_probe=2.0,
-        avg_thermal_strength_threshold_hysteresis=1.0,
-        min_probe_time_s=2.0,
-        circling_confidence_abort_threshold=0.2,
-    )
+    gsm = deepcopy(DEFAULT_GUIDANCE_STATE_MACHINE)
     vehicle_state = VehicleState(
         position=DEFAULT_ORIGIN_WP,  # Not used in current logic
         airspeed=10.0,
@@ -75,14 +72,7 @@ def test_cruise_to_probe_transition():
 
 
 def test_probe_to_circle_transition():
-    gsm = GuidanceStateMachine(
-        thermal_confidence_circle_threshold=0.5,
-        glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
-        avg_thermal_strength_threshold_cruise_to_probe=2.0,
-        avg_thermal_strength_threshold_hysteresis=1.0,
-        min_probe_time_s=2.0,
-        circling_confidence_abort_threshold=0.2,
-    )
+    gsm = deepcopy(DEFAULT_GUIDANCE_STATE_MACHINE)
     gsm.state = GuidanceState.PROBE
     gsm.last_state_change_time = 0.0
     vehicle_state = VehicleState(
@@ -106,14 +96,7 @@ def test_probe_to_circle_transition():
 
 
 def test_probe_to_cruise_transition():
-    gsm = GuidanceStateMachine(
-        thermal_confidence_circle_threshold=0.5,
-        glider_model_params=DEFAULT_GLIDER_MODEL_PARAMS,
-        avg_thermal_strength_threshold_cruise_to_probe=2.0,
-        avg_thermal_strength_threshold_hysteresis=1.0,
-        min_probe_time_s=2.0,
-        circling_confidence_abort_threshold=0.2,
-    )
+    gsm = deepcopy(DEFAULT_GUIDANCE_STATE_MACHINE)
     gsm.state = GuidanceState.PROBE
     gsm.last_state_change_time = 0.0
     vehicle_state = VehicleState(
