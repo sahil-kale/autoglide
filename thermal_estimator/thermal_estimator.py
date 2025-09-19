@@ -61,7 +61,7 @@ class ThermalEstimator:
         self.lambda3 = 1.0
 
         # Confidence-based scaling - can adapt lambda based on how good the fit is.
-        self.lambda_multiplier = 0.2
+        self.lambda_multiplier = 0.1
         self.confidence = 0.0
         self.average_sample_thermal_strength = 0.0
 

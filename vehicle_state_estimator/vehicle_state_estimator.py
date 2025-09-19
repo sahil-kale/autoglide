@@ -64,8 +64,8 @@ class VehicleStateEstimatorPassthrough:
         velocity_ground = Vector2D(delta_position.x / dt, delta_position.y / dt)
 
         heading = true_heading
-        self.state = VehicleState(position, true_airspeed, velocity_ground, heading)
-        self.state.time += dt
+        new_time = self.state.time + dt
+        self.state = VehicleState(position, true_airspeed, velocity_ground, heading, new_time)
         self.state.validate()
 
     def get_state(self):
