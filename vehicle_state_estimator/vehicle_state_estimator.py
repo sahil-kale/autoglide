@@ -65,7 +65,9 @@ class VehicleStateEstimatorPassthrough:
 
         heading = true_heading
         new_time = self.state.time + dt
-        self.state = VehicleState(position, true_airspeed, velocity_ground, heading, new_time)
+        self.state = VehicleState(
+            position, true_airspeed, velocity_ground, heading, new_time
+        )
         self.state.validate()
 
     def get_state(self):

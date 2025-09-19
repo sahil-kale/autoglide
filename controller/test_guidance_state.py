@@ -54,6 +54,7 @@ def test_cruise_to_probe_transition():
         airspeed=10.0,
         velocity_ground=DEFAULT_ZERO_VELOCITY_VECTOR,  # Not used in current logic
         heading=0.0,
+        time=0.0,
     )
 
     thermal_estimate = DEFAULT_THERMAL_ESTIMATE
@@ -89,6 +90,7 @@ def test_probe_to_circle_transition():
         airspeed=10.0,
         velocity_ground=DEFAULT_ZERO_VELOCITY_VECTOR,  # Not used in current logic
         heading=0.0,
+        time=1.0,
     )
     thermal_estimate = DEFAULT_THERMAL_ESTIMATE
     thermal_estimate.confidence = 0.4  # Below threshold
@@ -119,6 +121,7 @@ def test_probe_to_cruise_transition():
         airspeed=10.0,
         velocity_ground=DEFAULT_ZERO_VELOCITY_VECTOR,  # Not used in current logic
         heading=0.0,
+        time=1.0,
     )
     # Stay in PROBE (above hysteresis threshold)
     thermal_estimate = DEFAULT_THERMAL_ESTIMATE

@@ -13,8 +13,13 @@ def test_ground_vector_computation():
     initial_airspeed = 10.0
     initial_velocity_ground = Vector2D(0.0, 0.0)
     initial_heading = 0.0
+    initial_time = 0.0
     state = VehicleState(
-        initial_position, initial_airspeed, initial_velocity_ground, initial_heading
+        initial_position,
+        initial_airspeed,
+        initial_velocity_ground,
+        initial_heading,
+        initial_time,
     )
     estimator = VehicleStateEstimatorPassthrough(state)
 
@@ -33,5 +38,30 @@ def test_ground_vector_computation():
     print("Test passed: ground vector computed correctly.")
 
 
-if __name__ == "__main__":
-    test_ground_vector_computation()
+def test_time_update():
+    # Initial state
+    initial_position = WorldFrameCoordinate(0.0, 0.0)
+    initial_airspeed = 10.0
+    initial_velocity_ground = Vector2D(0.0, 0.0)
+    initial_heading = 0.0
+    initial_time = 0.0
+    state = VehicleState(
+        initial_position,
+        initial_airspeed,
+        initial_velocity_ground,
+        initial_heading,
+        initial_time,
+    )
+    estimator = VehicleStateEstimatorPassthrough(state)
+
+    # Simulate movement: move east by 10 meters in 1 second
+    new_position = WorldFrameCoordinate(10.0, 0.0)
+    true_airspeed = 10.0
+    true_heading = 0.0
+    dt = 1.0
+    estimator.update(new_position, true_airspeed, true_heading, dt)
+    updated_state = estimator.get_state()
+
+    # Time should be updated to 1.0
+    assert np.isclose(updated_state.time, 1.0)
+    print("Test passed: time updated correctly.")
