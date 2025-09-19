@@ -313,8 +313,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     thermal_params = ThermalModelParams()
-    thermal_params.x_c = 155
-    thermal_params.y_c = 0
     sim_params = SingleThermalSimParams(
         glider_model_params=glider_params,
         thermal_model_params=thermal_params,
