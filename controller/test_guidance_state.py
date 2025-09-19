@@ -5,6 +5,7 @@ from thermal_estimator.thermal_estimator import ThermalEstimate
 from utils.location import WorldFrameCoordinate
 from utils.vector import Vector2D
 from copy import deepcopy
+import numpy as np
 
 DEFAULT_ORIGIN_WP = WorldFrameCoordinate(0.0, 0.0)
 DEFAULT_TARGET_WP = WorldFrameCoordinate(1000.0, 0.0)
@@ -18,6 +19,7 @@ DEFAULT_GLIDER_MODEL_PARAMS = GliderModelParams(
     initial_altitude=1000.0,
     vel_tau=1.0,
     roll_tau=1.0,
+    roll_rate_limit_rad_per_s=np.radians(30),  # rad/s
 )
 
 DEFAULT_THERMAL_ESTIMATE = ThermalEstimate(

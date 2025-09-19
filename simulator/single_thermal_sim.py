@@ -126,7 +126,7 @@ class SingleThermalGliderSimulator:
 
         # --- Estimator ---
         self.thermal_estimator = ThermalEstimator(
-            variometer_noise_std=0.7, num_samples_to_buffer=40
+            variometer_noise_std=0.7, num_samples_to_buffer=50
         )
         self._step_count = 0
         self._time = 0.0
@@ -291,6 +291,7 @@ if __name__ == "__main__":
         initial_altitude=300.0,  # m
         roll_tau=0.3,  # s
         vel_tau=0.3,  # s
+        roll_rate_limit_rad_per_s=np.radians(60),  # rad/s
     )
 
     parser = argparse.ArgumentParser(description="Single Thermal Glider Simulator")

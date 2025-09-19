@@ -14,6 +14,7 @@ class GliderModelParams:
         roll_tau,
         vel_tau,
         V_stall,
+        roll_rate_limit_rad_per_s,
     ):
         self.V_star = V_star  # Best glide speed (m/s)
         self.V_stall = V_stall  # Stall speed (m/s)
@@ -24,11 +25,21 @@ class GliderModelParams:
 
         self.vel_tau = vel_tau  # Airspeed dynamics time constant (s)
         self.roll_tau = roll_tau  # Roll dynamics time constant (s)
+        self.roll_rate_limit_rad_per_s = (
+            roll_rate_limit_rad_per_s  # Roll rate limit (rad/s)
+        )
 
         assert self.V_star > 0, "V_star must be positive."
         assert self.s_min > 0, "s_min must be positive."
         assert self.k_v > 0, "k_v must be positive."
         assert self.alpha_n >= 0, "alpha_n must be non-negative."
+        assert self.initial_altitude > 0, "initial_altitude must be positive."
+        assert self.vel_tau > 0, "vel_tau must be positive."
+        assert self.roll_tau > 0, "roll_tau must be positive."
+        assert self.V_stall > 0, "V_stall must be positive."
+        assert (
+            self.roll_rate_limit_rad_per_s > 0
+        ), "roll_rate_limit_rad_per_s must be positive."
 
     def get_stall_speed_from_bank_angle(self, phi):
         n = 1 / np.cos(phi)  # Load factor
@@ -79,7 +90,13 @@ class GliderOpenLoopKinematicModel:
         assert disturbance is not None, "Disturbance input must be provided."
 
         # Update roll angle and airspeed using first order filter
-        self.phi = first_order_filter(self.phi, control.phi, self.params.roll_tau, dt)
+        phi_k_plus_1_unclamped = first_order_filter(
+            self.phi, control.phi, self.params.roll_tau, dt
+        )
+        max_roll_change = self.params.roll_rate_limit_rad_per_s * dt
+        roll_change = phi_k_plus_1_unclamped - self.phi
+        self.phi += np.clip(roll_change, -max_roll_change, max_roll_change)
+
         self.V = first_order_filter(self.V, control.V, self.params.vel_tau, dt)
 
         # Propogate the state

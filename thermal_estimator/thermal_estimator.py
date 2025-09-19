@@ -42,11 +42,11 @@ class ReducedOrderGaussianThermalModel:
 
 
 class ThermalEstimator:
-    def __init__(self, num_samples_to_buffer, variometer_noise_std=0.5, debug=True):
+    def __init__(self, num_samples_to_buffer, variometer_noise_std=0.5, debug=False):
         self.num_samples_to_buffer = num_samples_to_buffer
         self.variometer_noise_std = variometer_noise_std
         self.samples = []
-        self.estimate = ThermalEstimate(1.0, 50.0, WorldFrameCoordinate(0.0, 0.0), 0.0)
+        self.estimate = ThermalEstimate(2.0, 50.0, WorldFrameCoordinate(0.0, 0.0), 0.0)
         self.prev_params = [
             self.estimate.W0,
             self.estimate.Rth,
