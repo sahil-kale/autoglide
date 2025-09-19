@@ -27,6 +27,7 @@ class GuidanceStateMachine:
         thermal_confidence_circle_threshold,
         glider_model_params,
         avg_thermal_strength_threshold_cruise_to_probe,
+        circling_confidence_abort_threshold,
         avg_thermal_strength_threshold_hysteresis=0.5,
     ):
         self.state = GuidanceState.CRUISE
@@ -34,6 +35,7 @@ class GuidanceStateMachine:
         self.avg_thermal_strength_threshold_cruise_to_probe = (
             avg_thermal_strength_threshold_cruise_to_probe
         )
+        self.circling_confidence_abort_threshold = circling_confidence_abort_threshold
         self.avg_thermal_strength_threshold_hysteresis = (
             avg_thermal_strength_threshold_hysteresis
         )
@@ -90,11 +92,12 @@ class GuidanceStateMachine:
             ):
                 self.state = GuidanceState.CRUISE
         elif prev_state == GuidanceState.CIRCLE:
+            if thermal_estimate.confidence <= self.circling_confidence_abort_threshold:
+                self.state = GuidanceState.CRUISE
             # TODO: add logic to exit circle state if
             # 1) Thermal confidence drops below a threshold
             # 2) Thermal strength drops below a threshold
             # 3) High level planner issues command to exit (ex: enough altitude gained, or cloud base reached)
-            pass
 
         state_change = prev_state != self.state
         control_law = self.state_to_control_law[self.state]

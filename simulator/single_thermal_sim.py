@@ -24,7 +24,7 @@ from glider_model.model import (
 from thermal_model.thermal_model import ThermalModel, ThermalModelParams
 from thermal_estimator.thermal_estimator import ThermalEstimator
 from utils.location import WorldFrameCoordinate
-from controller.guidance_state_machine import GuidanceStateMachine, GuidanceState
+from controller.guidance_state_machine import GuidanceStateMachine
 from simulator.utils.airplane_glyph import draw_airplane
 from simulator.visualization import SingleThermalSimVisualizer
 from vehicle_state_estimator.vehicle_state_estimator import (
@@ -135,6 +135,7 @@ class SingleThermalGliderSimulator:
         self.guidance_sm = GuidanceStateMachine(
             thermal_confidence_circle_threshold=0.5,
             avg_thermal_strength_threshold_cruise_to_probe=2.0,
+            circling_confidence_abort_threshold=0.2,
             glider_model_params=self.params,
         )
         self.manual_mode = sim_params.manual_mode
@@ -310,6 +311,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     thermal_params = ThermalModelParams()
+    thermal_params.x_c = 155
+    thermal_params.y_c = 0
     sim_params = SingleThermalSimParams(
         glider_model_params=glider_params,
         thermal_model_params=thermal_params,
