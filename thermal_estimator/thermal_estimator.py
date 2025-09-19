@@ -42,7 +42,7 @@ class ReducedOrderGaussianThermalModel:
 
 
 class ThermalEstimator:
-    def __init__(self, num_samples_to_buffer, variometer_noise_std=0.5, debug=False):
+    def __init__(self, num_samples_to_buffer, variometer_noise_std=0.5, debug=True):
         self.num_samples_to_buffer = num_samples_to_buffer
         self.variometer_noise_std = variometer_noise_std
         self.samples = []
@@ -56,14 +56,16 @@ class ThermalEstimator:
         self.no_thermal_lock_threshold = 0.5  # m/s
         self.debug = debug
 
-        self.lambda1 = 1.0
-        self.lambda2 = 1.0
-        self.lambda3 = 1.0
+        self.lambda_w0 = 0.05
+        self.lambda_Rth = 0.05
+        self.lambda_location_diff = 0.0025
 
         # Confidence-based scaling - can adapt lambda based on how good the fit is.
-        self.lambda_multiplier = 0.1
+        self.lambda_multiplier = 1.0
         self.confidence = 0.0
         self.average_sample_thermal_strength = 0.0
+
+        self.max_range_for_estimate = 80.0  # m
 
     def step(self, measurement, location):
         # location is now WorldFrameCoordinate
@@ -73,7 +75,8 @@ class ThermalEstimator:
         self.samples.append((measurement, location))
         if len(self.samples) > self.num_samples_to_buffer:
             self.samples.pop(0)
-            self.average_sample_thermal_strength = np.mean([s[0] for s in self.samples])
+
+        self.average_sample_thermal_strength = np.mean([s[0] for s in self.samples])
 
         self.prev_params = [
             self.estimate.W0,
@@ -101,10 +104,19 @@ class ThermalEstimator:
 
             lam = self.lambda_multiplier
             reg = lam * (
-                self.lambda1 * reg_W0 + self.lambda2 * reg_Rth + self.lambda3 * reg_xy
+                self.lambda_w0 * reg_W0
+                + self.lambda_Rth * reg_Rth
+                + self.lambda_location_diff * reg_xy
             )
 
             return total_error + reg
+
+        if self.average_sample_thermal_strength < self.no_thermal_lock_threshold:
+            # brute force reset the core location to current location if no thermal lock
+            # This helps convergence when entering a thermal
+            self.estimate.est_core = WorldFrameCoordinate(location.x, location.y)
+            self.estimate.W0 = 2.0
+            self.estimate.Rth = 50.0
 
         initial_guess = [
             self.estimate.W0,
@@ -112,13 +124,22 @@ class ThermalEstimator:
             self.estimate.est_core.x,
             self.estimate.est_core.y,
         ]
-        if self.average_sample_thermal_strength < self.no_thermal_lock_threshold:
-            initial_guess[0] = 1.0
-            initial_guess[1] = 50.0
-            initial_guess[2] = location.x
-            initial_guess[3] = location.y
 
-        bounds = [(0.1, 20.0), (1.0, 200.0), (None, None), (None, None)]
+        x_coordinate_bounds = (
+            location.x - self.max_range_for_estimate,
+            location.x + self.max_range_for_estimate,
+        )
+        y_coordinate_bounds = (
+            location.y - self.max_range_for_estimate,
+            location.y + self.max_range_for_estimate,
+        )
+
+        bounds = [
+            (2.0, 20.0),
+            (5.0, 200.0),
+            (x_coordinate_bounds),
+            (y_coordinate_bounds),
+        ]
         result = minimize(
             cost_function, initial_guess, bounds=bounds, method="Nelder-Mead"
         )
