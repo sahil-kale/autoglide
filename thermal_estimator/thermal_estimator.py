@@ -11,6 +11,10 @@ class ThermalEstimate:
     est_core: WorldFrameCoordinate
     confidence: float = 0.0
 
+    average_actual_thermal_strength: float = (
+        0.0  # The actual average strength of the thermal from variometer samples
+    )
+
     def get_strength(self):
         return self.W0
 
@@ -19,6 +23,9 @@ class ThermalEstimate:
 
     def get_location(self):
         return self.est_core
+
+    def get_average_sampled_thermal_strength(self):
+        return self.average_actual_thermal_strength
 
 
 class ReducedOrderGaussianThermalModel:
@@ -129,6 +136,9 @@ class ThermalEstimator:
 
         self.update_confidence()
         self.estimate.confidence = self.confidence
+        self.estimate.average_actual_thermal_strength = (
+            self.average_sample_thermal_strength
+        )
         return self.estimate
 
     def update_confidence(self):
@@ -174,3 +184,6 @@ class ThermalEstimator:
         return self.thermal_model_estimate_updraft(
             eval_coordinate, core, thermal_estimate.W0, thermal_estimate.Rth
         )
+
+    def get_average_thermal_strength(self):
+        return self.average_sample_thermal_strength

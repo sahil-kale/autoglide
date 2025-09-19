@@ -1,4 +1,5 @@
 from enum import Enum
+import numpy as np
 from vehicle_state_estimator.vehicle_state_estimator import VehicleState
 from thermal_estimator.thermal_estimator import ThermalEstimate
 from controller.cruise_control_law import CruiseControlLaw
@@ -23,13 +24,20 @@ class GuidanceState(Enum):
 class GuidanceStateMachine:
     def __init__(
         self,
-        thermal_confidence_probe_threshold,
         thermal_confidence_circle_threshold,
         glider_model_params,
+        avg_thermal_strength_threshold_cruise_to_probe,
+        avg_thermal_strength_threshold_hysteresis=0.5,
     ):
         self.state = GuidanceState.CRUISE
-        self.thermal_confidence_probe_threshold = thermal_confidence_probe_threshold
         self.thermal_confidence_circle_threshold = thermal_confidence_circle_threshold
+        self.avg_thermal_strength_threshold_cruise_to_probe = (
+            avg_thermal_strength_threshold_cruise_to_probe
+        )
+        self.avg_thermal_strength_threshold_hysteresis = (
+            avg_thermal_strength_threshold_hysteresis
+        )
+        self._recent_thermal_strengths = []
 
         self.cruise_control_law = CruiseControlLaw(
             cruise_speed=25.0,
@@ -63,15 +71,23 @@ class GuidanceStateMachine:
         self.cruise_control_law.target_waypoint = target_wp
 
         prev_state = self.state
+        # Use average sampled thermal strength from the estimate
+        avg_thermal_strength = thermal_estimate.get_average_sampled_thermal_strength()
+
         if prev_state == GuidanceState.CRUISE:
-            # TODO: Consider adding minimum W0 threshold to avoid weak thermals.
-            # Implement at same time as MacCready logic since that will affect climb decisions.
-            if thermal_estimate.confidence >= self.thermal_confidence_probe_threshold:
+            # Transition to PROBE if average sampled thermal strength is above threshold
+            if (
+                avg_thermal_strength
+                >= self.avg_thermal_strength_threshold_cruise_to_probe
+            ):
                 self.state = GuidanceState.PROBE
         elif prev_state == GuidanceState.PROBE:
             if thermal_estimate.confidence >= self.thermal_confidence_circle_threshold:
                 self.state = GuidanceState.CIRCLE
-            elif thermal_estimate.confidence < self.thermal_confidence_probe_threshold:
+            elif avg_thermal_strength <= (
+                self.avg_thermal_strength_threshold_cruise_to_probe
+                - self.avg_thermal_strength_threshold_hysteresis
+            ):
                 self.state = GuidanceState.CRUISE
         elif prev_state == GuidanceState.CIRCLE:
             # TODO: add logic to exit circle state if

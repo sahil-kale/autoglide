@@ -133,8 +133,8 @@ class SingleThermalGliderSimulator:
 
         # --- Guidance State Machine ---
         self.guidance_sm = GuidanceStateMachine(
-            thermal_confidence_probe_threshold=0.3,
             thermal_confidence_circle_threshold=0.5,
+            avg_thermal_strength_threshold_cruise_to_probe=2.0,
             glider_model_params=self.params,
         )
         self.manual_mode = sim_params.manual_mode
@@ -285,8 +285,8 @@ if __name__ == "__main__":
         k_v=model_params["k_v"],
         alpha_n=model_params["alpha_n"],
         initial_altitude=300.0,  # m
-        roll_tau=0.6,  # s
-        vel_tau=0.5,  # s
+        roll_tau=0.3,  # s
+        vel_tau=0.3,  # s
     )
 
     parser = argparse.ArgumentParser(description="Single Thermal Glider Simulator")
