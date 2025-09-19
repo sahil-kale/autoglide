@@ -57,7 +57,7 @@ def run_thermal_center_offset_analysis(
     default_sim_params: SingleThermalSimParams, output_dir
 ):
     y_offset_mu = 0.0
-    y_offset_sigma = 60.0
+    y_offset_sigma = 40.0
     x_offset_mu = 150.0
     x_offset_sigma = 10.0
 
@@ -141,7 +141,7 @@ def run_monte_carlo_simulations():
         r_th=50.0,
         x_c=0.0,
         y_c=0.0,
-        V_e=0.0,
+        V_e=0.5,
         kx=0.0,
         ky=0.0,
         core_center_random_noise_std=2.0,

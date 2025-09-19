@@ -22,6 +22,16 @@ Where $(x_i, y_i)$ are the glider's positions and $w_{meas,i}$ are the correspon
 
 The terms with $\lambda_1, \lambda_2, \lambda_3$ are regularization terms to prevent large jumps in the estimated parameters between iterations. The previous estimates $W_{0,prev}, R_{th,prev}, x_{c,prev}, y_{c,prev}$ are used for this purpose.
 
+## Confidence Metric
+The estimator issues a confidence metric based on the residuals of the optimization by running a chi-squared test.
+### Chi-Squared Test
+The chi-squared statistic attempts to quantify how well the model fits the observed data. In theory, a $\chi^2$ value of 1 indicates that all of the residuals match the expected amount of noise in the measurements. A value much greater than 1 indicates that the model is not fitting the data well (i.e., the residuals are larger than expected), while a value much less than 1 suggests that the model may be overfitting the data (i.e., the residuals are smaller than expected).
+The chi-squared statistic is calculated as:
+$$
+\chi^2 = \frac{1}{N} \sum_{i=0}^{N - 1} \left(\frac{w_{pred}(x_i, y_i, x_c, y_c, W_0, R_{th}) - w_{meas,i}}{\sigma}\right)^2
+$$
+Where $\sigma$ is the standard deviation of the measurement noise (assumed to be known), in this case the standard deviation of noise associated with the variometer, and N is the number of measurements used in the estimation.
+
 ## The Journey
 Before settling on the above approach, I tried an Extended Kalman Filter (EKF) approach to estimate the thermal parameters as part of the state vector. The EKF had access to the actual position of the glider with no actual state dynamics, and the measurement model was the same Gaussian thermal model as above. Truthfully, I didn't have the best reason for using an EKF aside from it being a "first-reach" approach to the problem. When I implemented it, I found the EKF just wouldn't converge and keep increasing its covariance over time. 
 

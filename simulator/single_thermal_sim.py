@@ -135,7 +135,7 @@ class SingleThermalGliderSimulator:
         # --- Guidance State Machine ---
         self.guidance_sm = GuidanceStateMachine(
             thermal_confidence_circle_threshold=0.5,
-            avg_thermal_strength_threshold_cruise_to_probe=2.0,
+            avg_thermal_strength_threshold_cruise_to_probe=0.5,
             circling_confidence_abort_threshold=0.2,
             min_probe_time_s=10.0,
             min_thermal_strength_to_circle=2.5,
