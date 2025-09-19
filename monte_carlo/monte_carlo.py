@@ -134,6 +134,7 @@ def run_monte_carlo_simulations():
         initial_altitude=300.0,  # m
         roll_tau=0.3,  # s
         vel_tau=0.3,  # s
+        roll_rate_limit_rad_per_s=np.radians(60),  # rad/s
     )
 
     default_thermal_params = ThermalModelParams(
