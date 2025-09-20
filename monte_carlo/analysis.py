@@ -5,6 +5,7 @@ import argparse
 from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 STEADY_STATE_SAMPLES_FROM_END = 50
 
@@ -15,7 +16,6 @@ class ThermalOffsetResults:
     steady_state_estimated_radius_m: float = 0.0
     steady_state_estimated_w_max_m_per_s: float = 0.0
     steady_state_climb_rate_m_per_s: float = 0.0
-    time_to_reach_steady_state_s: float = 0.0
     time_to_switch_to_circling_s: float = 0.0
     success: bool = False
 
@@ -46,7 +46,7 @@ def analyze_thermal_center_offset_results(file):
     summed_radius = 0.0
     summed_w_max = 0.0
     summed_climb_rate = 0.0
-    for entry in data[-STEADY_STATE_SAMPLES_FROM_END:]:
+    for i, entry in enumerate(data[-STEADY_STATE_SAMPLES_FROM_END:]):
         distance_error = (
             (entry["est_thermal_x"] - entry["actual_thermal_x"]) ** 2
             + (entry["est_thermal_y"] - entry["actual_thermal_y"]) ** 2
@@ -54,7 +54,12 @@ def analyze_thermal_center_offset_results(file):
         summed_distance_error += distance_error
         summed_radius += entry["est_thermal_radius"]
         summed_w_max += entry["est_thermal_strength"]
-        summed_climb_rate += entry["disturbance_w"]
+
+        idx = len(data) - STEADY_STATE_SAMPLES_FROM_END + i
+        climb_delta = data[idx]["glider_h"] - data[idx - 1]["glider_h"]
+        dt = data[idx]["time"] - data[idx - 1]["time"]
+        climb_rate = climb_delta / dt if dt > 0 else 0.0
+        summed_climb_rate += climb_rate
 
     results.steady_state_estimated_core_distance_error_m = (
         summed_distance_error / STEADY_STATE_SAMPLES_FROM_END
@@ -68,62 +73,153 @@ def analyze_thermal_center_offset_results(file):
     results.steady_state_climb_rate_m_per_s = (
         summed_climb_rate / STEADY_STATE_SAMPLES_FROM_END
     )
-    results.success = data[-1]["guidance_state"] == "Circle"
+    results.success = (
+        data[-1]["guidance_state"] == "Circle"
+        and results.steady_state_climb_rate_m_per_s > 2.0
+    )
 
     if results.success:
         for i, entry in enumerate(data):
-            if entry["guidance_state"] == "Circle":
+            if (entry["guidance_state"] == "Circle") and (
+                results.time_to_switch_to_circling_s == 0.0
+            ):
                 results.time_to_switch_to_circling_s = entry["time"]
-                break
 
     return results
+
 
 def collect_all_thermal_offset_results(files):
     all_results = []
     for file in files:
         try:
-            analyze_thermal_center_offset_results(file)
+            all_results.append(analyze_thermal_center_offset_results(file))
         except Exception as e:
             click.secho(f"Error analyzing {file}: {e}", fg="red")
     return all_results
 
-def plot_thermal_offset_results(all_results):
+
+def _hist(ax, data, title, xlabel, bins="auto"):
+    arr = np.asarray([d for d in data if d is not None])
+    n = len(arr)
+    if n == 0:
+        ax.text(0.5, 0.5, "No data", ha="center", va="center", fontsize=10)
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_yticks([])
+        ax.grid(True, alpha=0.25)
+        return
+
+    ax.hist(arr, bins=bins, alpha=0.7, edgecolor="black")
+    mu = float(np.mean(arr))
+    med = float(np.median(arr))
+    ax.axvline(mu, linestyle="--", linewidth=1.5, label=f"mean = {mu:.3g}")
+    ax.axvline(med, linestyle="-.", linewidth=1.5, label=f"median = {med:.3g}")
+
+    ax.set_title(f"{title}  (n={n})")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("Count")
+    ax.grid(True, alpha=0.25)
+    ax.legend(fontsize=8, loc="upper right")
+
+
+def _bar_success(ax, n_success, n_fail):
+    total = n_success + n_fail
+    ax.bar(
+        ["Successful", "Unsuccessful"],
+        [n_success, n_fail],
+        edgecolor="black",
+        alpha=0.8,
+    )
+    for i, v in enumerate([n_success, n_fail]):
+        pct = (100.0 * v / total) if total > 0 else 0.0
+        ax.text(i, v, f"{v} ({pct:.1f}%)", ha="center", va="bottom", fontsize=9)
+    ax.set_title(f"Run Outcomes  (total={total})")
+    ax.set_ylabel("Count")
+    ax.grid(axis="y", alpha=0.25)
+
+
+def plot_thermal_offset_results(all_results, save_path=None, show=True):
+    """
+    Plot summary histograms for thermal offset evaluation results,
+    plus a success vs unsuccessful bar chart.
+
+    Args:
+        all_results: iterable of result objects with attributes:
+            - success (bool)
+            - steady_state_estimated_core_distance_error_m
+            - steady_state_estimated_radius_m
+            - steady_state_estimated_w_max_m_per_s
+            - steady_state_climb_rate_m_per_s
+            - time_to_switch_to_circling_s
+        save_path: optional filepath to save the figure (e.g., 'results.png' or 'results.pdf')
+        show: whether to plt.show() the figure
+    """
     if not all_results:
         click.secho("No results to plot.", fg="red")
         return
 
-    # Extract data for plotting
-    distance_errors = [res.steady_state_estimated_core_distance_error_m for res in all_results]
-    radii = [res.steady_state_estimated_radius_m for res in all_results]
-    w_maxs = [res.steady_state_estimated_w_max_m_per_s for res in all_results]
-    climb_rates = [res.steady_state_climb_rate_m_per_s for res in all_results]
-    times_to_steady = [res.time_to_reach_steady_state_s for res in all_results if res.time_to_reach_steady_state_s > 0]
-    times_to_circle = [res.time_to_switch_to_circling_s for res in all_results if res.time_to_switch_to_circling_s > 0]
+    successful = [r for r in all_results if getattr(r, "success", False)]
+    unsuccessful = [r for r in all_results if not getattr(r, "success", False)]
+    if not successful:
+        click.secho("No successful results to plot.", fg="yellow")
+        # Still plot the outcomes bar so you can see zeros
+        distance_errors = radii = w_maxs = climb_rates = times_to_circle = []
+    else:
+        distance_errors = [
+            r.steady_state_estimated_core_distance_error_m for r in successful
+        ]
+        radii = [r.steady_state_estimated_radius_m for r in successful]
+        w_maxs = [r.steady_state_estimated_w_max_m_per_s for r in successful]
+        climb_rates = [r.steady_state_climb_rate_m_per_s for r in successful]
+        times_to_circle = [
+            r.time_to_switch_to_circling_s
+            for r in successful
+            if getattr(r, "time_to_switch_to_circling_s", 0)
+            and r.time_to_switch_to_circling_s > 0
+        ]
 
-    # Create subplots
-    fig, axs = plt.subplots(3, 2, figsize=(12, 10))
-    axs[0, 0].hist(distance_errors, bins=20, color='blue', alpha=0.7)
-    axs[0, 0].set_title('Steady State Estimated Core Distance Error (m)')
-    axs[0, 0].set_xlabel('Distance Error (m)')
-    axs[0, 0].set_ylabel('Frequency')
+    plots = [
+        (distance_errors, "Core Distance Error (m)", "Distance Error (m)"),
+        (radii, "Estimated Radius (m)", "Radius (m)"),
+        (w_maxs, "Estimated W_max (m/s)", "W_max (m/s)"),
+        (climb_rates, "Steady-State Climb (m/s)", "Climb Rate (m/s)"),
+        (times_to_circle, "Time to Circling (s)", "Time (s)"),
+    ]
 
-    axs[0, 1].hist(radii, bins=20, color='green', alpha=0.7)
-    axs[0, 1].set_title('Steady State Estimated Radius (m)')
-    axs[0, 1].set_xlabel('Radius (m)')
-    axs[0, 1].set_ylabel('Frequency')
+    # +1 panel for outcomes bar chart
+    n = len(plots) + 1
+    cols = min(3, n)
+    rows = math.ceil(n / cols)
 
-    axs[1, 0].hist(w_maxs, bins=20, color='red', alpha=0.7)
-    axs[1, 0].set_title('Steady State Estimated W_max (m/s)')
-    axs[1, 0].set_xlabel('W_max (m/s)')
-    axs[1, 0].set_ylabel('Frequency')
+    fig, axes = plt.subplots(rows, cols, figsize=(4.8 * cols, 3.8 * rows))
+    if isinstance(axes, np.ndarray):
+        axes = axes.ravel()
+    else:
+        axes = [axes]
 
-    axs[1, 1].hist(climb_rates, bins=20, color='purple', alpha=0.7)
-    axs[1, 1].set_title('Steady State Climb Rate (m/s)')
-    axs[1, 1].set_xlabel('Climb Rate (m/s)')
-    axs[1, 1].set_ylabel('Frequency')
+    # Histograms
+    for i, (data, title, xlabel) in enumerate(plots):
+        _hist(axes[i], data, title, xlabel, bins="auto")
 
-    plt.tight_layout()
-    plt.show()
+    # Success vs unsuccessful bar chart in the next slot
+    _bar_success(axes[len(plots)], len(successful), len(unsuccessful))
+
+    # Hide any extra axes
+    for j in range(n, len(axes)):
+        axes[j].axis("off")
+
+    fig.suptitle("Thermal Offset Monte Carlo Analysis", fontsize=14, y=0.98)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+
+    if save_path:
+        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+        click.secho(f"Saved plots to: {save_path}", fg="green")
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
 
 def get_thermal_offset_files(output_dir):
     thermal_offset_files = []
