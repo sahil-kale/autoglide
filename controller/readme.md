@@ -80,5 +80,12 @@ Photos of the simulation runs of only the L1 guidance law in line and circle mod
 #### Circle Tracking
 ![L1 Circle Tracking](l1_guidance_circle.png)
 
+## Probe Control Law
+The probe control law (implemented in `probe_control_law.py`) started as a placeholder, but I found out it worked quite well in practice. It currently calculates a vector from the glider's current position to the (low-confidence) estimated thermal center, and simply applies a bang-bang control law to turn the glider towards that point at a fixed bank angle. 
+
+This turned out to be quite effective in practice, as the glider will turn towards the estimated thermal center and then start circling around it once the thermal estimator gains confidence in the estimate. The circling control law will then take over and optimize the circling radius and speed to fly. The Monte Carlo simulations show that the bang-bang probe control law generates zig-zag trajectories that effectively explore the area around the estimated thermal center, allowing the thermal estimator to converge to a good estimate of the thermal parameters in a fair amount of time.
+
+The original idea behind this control law was to have the glider perform zig-zag maneuvers to search for thermals, and building a cost map of the area as it explores to determine where to best probe. This idea comes from the fact that glider pilots keep a mental map of where they found lift and where they have explored to inform how to probe for the thermal core. Usually, this involves turning whenever a thermal is detected and flying straight when no lift is detected. This is a TODO for future work if the need arises.
+
 # TODO
 In cruise mode, consider flying a MacCready speed based on the estimated average thermal strength and environmental sink rate.

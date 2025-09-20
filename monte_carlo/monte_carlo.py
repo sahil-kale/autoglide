@@ -16,7 +16,7 @@ import datetime
 
 
 NUM_SIMS_THERMAL_CENTER_OFFSET = 50
-MAX_PROCESSES = 5  # Maximum number of parallel processes
+MAX_PROCESSES = 3  # Maximum number of parallel processes
 
 ASK21_MODEL_PATH = os.path.join(
     os.path.dirname(__file__), "../ask21_kinematic_model.json"
