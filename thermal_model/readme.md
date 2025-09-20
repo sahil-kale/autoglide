@@ -5,6 +5,9 @@ $$
 w_{\text{pred}}(r) = \big(w_0 + V_e\big) \exp\!\left[ -\left(\frac{r}{\max(r_{th},\,1)}\right)^2 \right] - V_e
 $$
 
+The below plot shows a 2D representation of the thermal's uplift field (defined as the vertical velocity induced by the thermal) at a fixed altitude slice. The thermal core is centered at (0,0) in this plot.
+![3D Thermal Plot](3d_thermal_uplift_field.png)  
+
 ## Core Centering Model
 The thermal core is assumed to drift linearly with altitude, with drift rates $k_x$ and $k_y$ in the x and y directions respectively. Additionally, a small random noise component is added to the core position at each altitude with zero mean.
 The core center at altitude $h$ is given by:
@@ -28,8 +31,5 @@ This simple model assumes a constant wind shear. It’s definitely not high fide
 - $r = \sqrt{(x - x_c)^2 + (y - y_c)^2}$ = radial distance to thermal center  
 
 ## Model Plots
-The below plot shows a 2D representation of the thermal's uplift field (defined as the vertical velocity induced by the thermal) at a fixed altitude slice. The thermal core is centered at (0,0) in this plot.
-![3D Thermal Plot](3d_thermal_uplift_field.png)  
-
-The below plot shows a 3D representation of the thermal core's drift with altitude. The core starts at (0,0) at ground level and drifts linearly with altitude, with rings of consistant uplift shown at various altitude slices.
+The below plot shows a 3D representation of the thermal core's drift with altitude. The core starts at (0,0) at ground level and drifts linearly with altitude, with rings of consistent uplift shown at various altitude slices.
 ![3D Thermal Core Drift Plot](3d_thermal_core_drift.png)
