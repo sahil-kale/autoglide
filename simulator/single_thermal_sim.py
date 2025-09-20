@@ -316,7 +316,7 @@ if __name__ == "__main__":
 
     thermal_params = ThermalModelParams()
     thermal_params.x_c = 153.0  # m
-    thermal_params.y_c = 39
+    thermal_params.y_c = -25.8  # m
     sim_params = SingleThermalSimParams(
         glider_model_params=glider_params,
         thermal_model_params=thermal_params,
