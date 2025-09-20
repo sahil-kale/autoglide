@@ -24,13 +24,15 @@ W_0 \, \exp\!\left( -\frac{r^2}{R_{th}^2} \right)
 $$
 
 The cost function to minimize is the sum of squared differences between the predicted and measured vertical air velocities:
+
 $$
-J \;=\; \sum_{i=0}^{N - 1} 
-\Big( w_{\text{pred}}(x_i, y_i, x_c, y_c, W_0, R_{th}) - w_{\text{meas},i} \Big)^2 
-\;+\; \lambda_1 \,(W_0 - W_{0,\text{prev}})^2 
-\;+\; \lambda_2 \,(R_{th} - R_{th,\text{prev}})^2 
-\;+\; \lambda_3 \,\Big[ (x_c - x_{c,\text{prev}})^2 + (y_c - y_{c,\text{prev}})^2 \Big]
+J = \sum_{i=0}^{N-1} 
+\left( w_{pred}(x_i, y_i, x_c, y_c, W_0, R_{th}) - w_{meas,i} \right)^2
++ \lambda_1 (W_0 - W_{0,prev})^2
++ \lambda_2 (R_{th} - R_{th,prev})^2
++ \lambda_3 \left[ (x_c - x_{c,prev})^2 + (y_c - y_{c,prev})^2 \right]
 $$
+
 Where $(x_i, y_i)$ are the glider's positions and $w_{meas,i}$ are the corresponding measured vertical air velocities (measured from variometer), with N being the total number of variometer measurements used in the estimation.
 
 The terms with $\lambda_1, \lambda_2, \lambda_3$ are regularization terms to prevent large jumps in the estimated parameters between iterations. The previous estimates $W_{0,prev}, R_{th,prev}, x_{c,prev}, y_{c,prev}$ are used for this purpose.
