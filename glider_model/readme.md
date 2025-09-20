@@ -14,7 +14,9 @@ The glider is assumed to be modeled as a point mass with a fixed kinematic model
 - $s(V, \phi)$: Sink rate of the glider (m/s) – positive defined as downwards. 
 
 ### Sink Rate Model
-The sink rate $s(V, \phi)$ expresses how much altitude the glider loses based on the airspeed $V$ and the roll angle $\phi$. Usually found from the glider's polar curve. An example from an ASK-21 is given below here ([source](https://www.williamssoaring.com/fleet/ask21b-bm.html)) ![Glider Polar Curves](ask21-polar-450x.jpg).
+The sink rate $s(V, \phi)$ expresses how much altitude the glider loses based on the airspeed $V$ and the roll angle $\phi$. Usually found from the glider's polar curve. An example from an ASK-21 is given below here ([source](https://www.williamssoaring.com/fleet/ask21b-bm.html)).
+ 
+![Glider Polar Curves](ask21-polar-450x.jpg).
 
 For simplicity, a quadratic model fitted around the min sink (defined as $s_{min}$, at $V^{\ast}$). $s_0(V)$ is the sink rate at zero roll angle with the current airspeed, and $k_v$ is a tuning parameter that defines how quickly the sink rate increases as the airspeed deviates from $V^{\ast}$.
 
@@ -24,7 +26,10 @@ $$
     
 See `polar_computation/eval_polar.py` for a script that fits this model to polar curve data from an ASK21.
 
-Finally, this sink rate is adjusted for the roll angle $\phi$ as there is less lift generated when the glider is banked. See the figure below for more details ([source](https://aviation.stackexchange.com/questions/19030/what-types-of-maneuvers-increase-the-load-factor-on-the-aircraft)). ![Effect of Bank Angle on Glide Ratio](flight_lift_vector.png).  
+Finally, this sink rate is adjusted for the roll angle $\phi$ as there is less lift generated when the glider is banked. See the figure below for more details ([source](https://aviation.stackexchange.com/questions/19030/what-types-of-maneuvers-increase-the-load-factor-on-the-aircraft)). 
+
+![Effect of Bank Angle on Glide Ratio](flight_lift_vector.png).  
+
 For the purposes of this model, it's assumed that the sink rate increases proportionally to the load factor ($n = \tfrac{1}{\cos(\phi)}$) to the power of a tunable parameter $\alpha_n$. There's a more complex relationship here, but keeping it simple since I'm not an aerodynamics expert.
 
 $$
