@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from simulator.constants import VisualizerParams
 from simulator.utils.airplane_glyph import draw_airplane
-
+import imageio
 
 class SingleThermalSimVisualizer:
     def __init__(self, params: VisualizerParams):
@@ -189,6 +189,4 @@ class SingleThermalSimVisualizer:
 
     def finalize_video(self):
         if self._frames is not None and self.params.video_save_path:
-            import imageio
-
             imageio.mimsave(self.params.video_save_path, self._frames, fps=10)

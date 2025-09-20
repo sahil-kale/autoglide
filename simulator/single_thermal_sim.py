@@ -10,6 +10,7 @@ import argparse
 import numpy as np
 import matplotlib as mpl
 import numpy as np
+import click
 
 # Ensure package root is on path (one level up from this file)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -259,6 +260,9 @@ class SingleThermalGliderSimulator:
                 for _ in range(max_steps):
                     self.step()
                     self.draw()
+                click.secho(
+                    f"Simulation complete. Log saved to {self.log_path}", fg="green"
+                )
                 # Finalize video if needed
                 if self.sim_params.video_save_path:
                     self.visualizer.finalize_video()
