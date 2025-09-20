@@ -1,10 +1,10 @@
 # AutoGlide
 ## Overview
-AutoGlide is a full-stack GNC simulation for autonomous thermal soaring, featuring a kinematic ASK-21 glider model, online thermal estimation, and nonlinear guidance/control laws. The goal is to create a simulation of a glider within a convective environment that can autonomously locate and track a thermal updraft using only onboard sensors and compute, mirroring the challenges faced by real-world glider pilots. The project ultimately ended up being a fun way to explore non-linear control theory, optimal control, state estimation, and controller/estimator interactions.
-
-The project was inspired by my interest in gliding as a sport (as I am a glider pilot myself) and my desire to learn more about control theory and state estimation.
+AutoGlide is a full-stack GNC simulation for autonomous thermal soaring, featuring a kinematic ASK-21 glider model, online thermal estimation, and nonlinear guidance/control laws. The goal is to create a simulation of a glider within a convective environment that can autonomously locate and track a thermal updraft using only onboard sensors and compute, mirroring the challenges faced by real-world glider pilots. The project ultimately ended up being a fun way to explore non-linear control theory, optimal control, state estimation, and controller/estimator interactions. For a single thermal scenario, the glider is able to predict a thermal's parameters with a high degree of accuracy (~10% error) and thermal centering within 3m in simulation, allowing it to stay aloft indefinitely in a persistent thermal.
 
 ![Glider Simulation](circling_demo.gif)
+
+The project was inspired by my interest in gliding as a sport (as I am a glider pilot myself) and my desire to learn more about control theory and state estimation.
 
 ## Key Features
 - **Physics-Based Glider Model (ASK21)**: Implements a realistic glider kinematic model based on the ASK21 glider, including key aerodynamics and sink rates.
