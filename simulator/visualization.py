@@ -5,6 +5,7 @@ from simulator.constants import VisualizerParams
 from simulator.utils.airplane_glyph import draw_airplane
 import imageio
 
+
 class SingleThermalSimVisualizer:
     def __init__(self, params: VisualizerParams):
         if params.headless:

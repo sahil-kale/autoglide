@@ -4,14 +4,11 @@ A short side-quest-research-project to see if I can make a glider locate and tra
 ![Glider Simulation](circling_demo.gif)
 
 ## Overview
-TODO:
-- Glider Model
-- Thermal Model
-- Core Tracking Filter + State Estimator
-- Centering Controller
-- Stability Analysis
-- Monte Carlo Simulations
-- Simulation Environment
+- [Glider Model](glider_model/readme.md)
+- [Thermal Model](thermal_model/readme.md)
+- [Core Tracking Filter + State Estimator](thermal_estimator/readme.md)
+- [Guidance Control Laws](controller/readme.md)
+- [Monte Carlo Simulation + Analysis](monte_carlo/readme.md)
 
 ## Asides
 This is a side project for the sake of learning and fun. It is not intended to be a project with production quality code or an example of best practice engineering - it's meant to be a sandbox for me to learn and experiment. AI was used to help generate some of the code and understand concepts presented in various research papers. If you find this project useful or interesting, please consider starring the repository!

@@ -12,6 +12,10 @@ The main types of simulations run include:
 
 ![Thermal Center Offset Simulation](thermal_offset_analysis.png)
 
+The analysis shows that the glider is able to effectively locate and center the thermal in the majority of cases. The state estimator performs quite well and converges to the true thermal parameters quickly, with a relatively fast time to first circle. The guidance algorithm is also effective at centering the thermal, with the majority of simulations achieving a steady-state uplift close to the maximum possible uplift for the given thermal strength.
+
+Notably, the glider fails to center the thermal effectively in 14 of the simulations run - these cases were due a large initial offset for which we'd expect the glider to take a long time to locate the thermal or qualify it as not worth probing for, achieving a fairly realistic result even though it shows up as a failure mode in the analysis.
+
 ## Learnings
 The Monte Carlo simulations were something I was originally doing to get an idea of how to actually validate the robustness control algorithm in the wild. What I was *not* expecting was discovering the innate usefulness of these simulations in exposing weaknesses in the control algorithms themselves almost immediately. I later found this is actually a key use case of Monte Carlo simulations in control theory.
 
