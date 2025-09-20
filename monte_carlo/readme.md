@@ -10,8 +10,7 @@ The main types of simulations run include:
 **Thermal Center Offset**: Varying the initial position of the glider relative to the thermal center. This tests the state estimator's ability to locate the thermal and the guidance algorithm's ability to center in the thermal.
 - The primary goal of this is to evaluate the predicted thermal strength, center, radius, and ultimately the steady-state uplift the glider can achieve.
 
-**Wind Conditions**: Introducing different wind speeds and directions to evaluate how well the glider can maintain its course and altitude while centering thermals.
-- The primary goal of this is to evaluate the average distance from the thermal center the glider can achieve, as well as the steady-state average uplift.
+![Thermal Center Offset Simulation](thermal_offset_analysis.png)
 
 ## Learnings
 The Monte Carlo simulations were something I was originally doing to get an idea of how to actually validate the robustness control algorithm in the wild. What I was *not* expecting was discovering the innate usefulness of these simulations in exposing weaknesses in the control algorithms themselves almost immediately. I later found this is actually a key use case of Monte Carlo simulations in control theory.
@@ -25,3 +24,8 @@ The below GIF shows a simulation with poor thresholding logic, where the glider 
 
 The below GIF shows a simulation with the improved thresholding logic, where the glider successfully probes and circles the thermal in a similar scenario.
 ![Glider Simulation with improved thresholding logic](revamped_state_machine_criteria.gif)
+
+## Todo
+Some other simulations I want to run in the future include:
+**Wind Conditions**: Introducing different wind speeds and directions to evaluate how well the glider can maintain its course and altitude while centering thermals.
+- The primary goal of this is to evaluate the average distance from the thermal center the glider can achieve, as well as the steady-state average uplift.

@@ -245,6 +245,12 @@ if __name__ == "__main__":
         type=str,
         help="Directory containing simulation output.",
     )
+    parser.add_argument(
+        "--show",
+        action="store_true",
+        help="Show plots interactively.",
+        default=False,
+    )
     args = parser.parse_args()
 
     output_dir = args.output_dir
@@ -263,4 +269,5 @@ if __name__ == "__main__":
 
     all_results = collect_all_thermal_offset_results(thermal_offset_files)
     click.secho(f"Collected results from {len(all_results)} simulations.", fg="green")
-    plot_thermal_offset_results(all_results)
+    output_fig_path = os.path.join(output_dir, "thermal_offset_analysis.png")
+    plot_thermal_offset_results(all_results, show=args.show, save_path=output_fig_path)
