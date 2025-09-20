@@ -1,5 +1,5 @@
 # Thermal Estimator
-The goal of the thermal estimator model is to estimate the thermal core position and strength based on the glider's positions and vertical air velocity measurements. It uses an optimizer to minimize the difference between predicted and measured vertical air velocities. A Gaussian thermal model is assumed. A snippet of the estimator tracking a thermal is shown below:
+The goal of the thermal estimator model is to estimate the thermal core position and strength based on the glider's positions and vertical air velocity measurements. It uses an optimizer to minimize the difference between predicted and measured vertical air velocities with a simplified Gaussian thermal model. A snippet of the estimator tracking a thermal is shown below:
 ![Thermal Estimator Tracking](glider_thermal_estimator.png)
 
 ## Optimization Variables
@@ -10,13 +10,26 @@ The variables optimized over are:
 
 ## Optimization Problem
 The estimator uses a nonlinear optimization approach to minimize the residuals between the predicted and measured vertical air currents. The predicted vertical air velocity at the glider's position is given by a Gaussian thermal model:
+Define the radial distance:
+
 $$
-w_{pred}(x, y, x_c, y_c, W_0, R_{th}) = W_0 \exp\left(-\frac{(x - x_c)^2 + (y - y_c)^2}{R_{th}^2}\right)
+r = \sqrt{(x - x_c)^2 + (y - y_c)^2}
+$$
+
+Then the predicted vertical velocity is:
+
+$$
+w_{\text{pred}}(r, W_0, R_{th}) \;=\; 
+W_0 \, \exp\!\left( -\frac{r^2}{R_{th}^2} \right)
 $$
 
 The cost function to minimize is the sum of squared differences between the predicted and measured vertical air velocities:
 $$
-J = \sum_{i=0}^{N - 1} \left(w_{pred}(x_i, y_i, x_c, y_c, W_0, R_{th}) - w_{meas,i}\right)^2 + \lambda_1 (W_0 - W_{0,prev})^2 + \lambda_2 (R_{th} - R_{th,prev})^2 + \lambda_3 ((x_c - x_{c,prev})^2 + (y_c - y_{c,prev})^2)
+J \;=\; \sum_{i=0}^{N - 1} 
+\Big( w_{\text{pred}}(x_i, y_i, x_c, y_c, W_0, R_{th}) - w_{\text{meas},i} \Big)^2 
+\;+\; \lambda_1 \,(W_0 - W_{0,\text{prev}})^2 
+\;+\; \lambda_2 \,(R_{th} - R_{th,\text{prev}})^2 
+\;+\; \lambda_3 \,\Big[ (x_c - x_{c,\text{prev}})^2 + (y_c - y_{c,\text{prev}})^2 \Big]
 $$
 Where $(x_i, y_i)$ are the glider's positions and $w_{meas,i}$ are the corresponding measured vertical air velocities (measured from variometer), with N being the total number of variometer measurements used in the estimation.
 
@@ -31,6 +44,10 @@ $$
 \chi^2 = \frac{1}{N} \sum_{i=0}^{N - 1} \left(\frac{w_{pred}(x_i, y_i, x_c, y_c, W_0, R_{th}) - w_{meas,i}}{\sigma}\right)^2
 $$
 Where $\sigma$ is the standard deviation of the measurement noise (assumed to be known), in this case the standard deviation of noise associated with the variometer, and N is the number of measurements used in the estimation.
+
+## Improvements
+The simplified estimator model above works well in practice, but there are some improvements:
+- Incorporate wind drift and wind gradient into the thermal model to better capture real-world thermal behavior. The simulator does model for thermal core drift with altitude, but the estimator does not currently account for this and requires the optimization problem to be re-solved at each altitude slice.
 
 ## The Journey
 Before settling on the above approach, I tried an Extended Kalman Filter (EKF) approach to estimate the thermal parameters as part of the state vector. The EKF had access to the actual position of the glider with no actual state dynamics, and the measurement model was the same Gaussian thermal model as above. Truthfully, I didn't have the best reason for using an EKF aside from it being a "first-reach" approach to the problem. When I implemented it, I found the EKF just wouldn't converge and keep increasing its covariance over time. 
