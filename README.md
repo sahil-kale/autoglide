@@ -6,18 +6,32 @@ The project was inspired by my interest in gliding as a sport (as I am a glider 
 
 ![Glider Simulation](circling_demo.gif)
 
+## Key Features
+- **Physics-Based Glider Model (ASK21)**: Implements a realistic glider kinematic model based on the ASK21 glider, including key aerodynamics and sink rates.
+- **Thermal Updraft Modelling**: Simulates thermal updrafts with realistic spatial and temporal variations, allowing the glider to interact with dynamic lift sources for robust controller development.
+- **Multiple Guidance Control Laws**: Implements various guidance control laws, including probe, circling, and optimal speed-to-fly strategies, allowing the glider to adapt its flight path based on thermal conditions.
+- **Online Thermal State Estimation**: Uses a optimization-based approach on windowed variometer data to estimate thermal parameters (strength, radius, center) in real-time, with a statistical-based confidence metric to ensure robust switching between guidance modes.
+- **Monte Carlo Simulations**: Implements Monte Carlo simulations to evaluate the performance and robustness of the control algorithms under varying initial conditions and parameters, exposing potential weaknesses and failure modes.
+
 ## Table of Contents
 - [Glider Model](glider_model/readme.md)
 - [Thermal Model](thermal_model/readme.md)
 - [Core Tracking Filter + State Estimator](thermal_estimator/readme.md)
 - [Guidance Control Laws](controller/readme.md)
 - [Monte Carlo Simulation + Analysis](monte_carlo/readme.md)
+- [Development Notes](development.md)
+
+## High Level Architecture
+![Block Diagram](block_diagram.png)
+The architecture consists of several key components, with more details explained in the respective readmes. Note that for the scope of this project (single thermal tracking), the following components are not implemented but could be added in the future:
+- Mission Plan (fixed on startup in this simulation)
+- MacCready Speed-to-Fly (not implemented, but could be added to the controller)
 
 ## Future Work
 Here are some random ideas and thoughts for extensions and future work that I wanted to capture.
-- Windshear thermal models
+- Windshear and wind gradient models
 - Condor 2 Integration (Plug and Play with XCSoar UDP API, Virtual Joystick)
-- Variometer modelling
+- Variometer modelling (lag dynamics)
 - Wind estimation
 - Replay real thermal data and see how well it would do
 
