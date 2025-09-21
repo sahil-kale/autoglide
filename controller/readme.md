@@ -10,14 +10,14 @@ The state machine (implemented in `state_machine.py`) determines the current fli
 All control modes use the same 
 
 ## L1 Guidance Control Law
-The L1 guidance control law (implemented in `l1_guidance_law.py`) enables the glider to track arbitrary paths (expressed as waypoints). A good explanation of L1 guidance can be found in this [paper](https://mercury.kau.ac.kr/park/Archive/PCUAV/gnc_park_deyst_how.pdf). The key idea is that an acceleration command $a_s_{cmd}$ is computed based on the lateral error to the desired path's lookahead point. The below explanation is my summary of the key points from the paper that I found relevant in implementing the law.
+The L1 guidance control law (implemented in `l1_guidance_law.py`) enables the glider to track arbitrary paths (expressed as waypoints). A good explanation of L1 guidance can be found in this [paper](https://mercury.kau.ac.kr/park/Archive/PCUAV/gnc_park_deyst_how.pdf). The key idea is that an acceleration command $a_{s,\text{cmd}}$ is computed based on the lateral error to the desired path's lookahead point. The below explanation is my summary of the key points from the paper that I found relevant in implementing the law.
 
 The overall reason to use L1 guidance over pure pursuit (even though they are quite similar) is that L1 guidance takes into account the ground velocity vector of the glider and computes a lateral acceleration command with proven stability properties, whereas pure pursuit just computes a heading command to point toward the lookahead point. This becomes especially important in wind, since the glider’s ground velocity vector may not be aligned with its heading.
 
 ### Key Equations
 The lateral acceleration command is given by:
 $$
-a_{s_{cmd}} = 2 \frac{V^2}{L_1} \sin(\eta)
+a_{s,\text{cmd}} = 2 \frac{V^2}{L_1} \sin(\eta)
 $$
 Where:
 - $V$ is the current ground speed of the glider
@@ -27,14 +27,18 @@ Where:
 Note that this same law can be used to track straight lines and circular arcs. The difference is in how the lookahead point is computed.
 For circular arcs, the paper proposes the following method to compute the lookahead point:
 The centripetal acceleration required to follow a circular path of radius $R$ at speed $V$ is given by $a_c = \frac{V^2}{R}$. The lateral acceleration command can be set to this value to follow the arc. Rearranging the equation gives the required turn radius:
-$$ 
-\frac{V^2}{R} = 2 \frac{V^2}{L_1} \sin(\eta) \implies R = \frac{L_1}{2 \sin(\eta)}
+$$
+\frac{V^2}{R} = 2 \frac{V^2}{L_1} \sin(\eta)
+$$
+
+$$
+R = \frac{L_1}{2 \sin(\eta)}
 $$
 
 ### Straight Line Path Tracking
 For a straight line, the cross-track error $d$ is minimized by the above control law in a fashion similar to a gain-scheduled PD controller (equation 3). The gain scheduling comes from the fact that the velocity $V$ and lookahead distance $L_1$ can vary. For small angles, $\sin(\eta) \approx \eta$, and the acceleration command approximates to:
 $$
-a_{s_{cmd}} \approx 2 \frac{V^2}{L_1^2} (\frac{d}{L_1} + \frac{\dot{d}}{V})
+a_{s,\text{cmd}} \approx 2 \frac{V^2}{L_1^2} \left( \frac{d}{L_1} + \frac{\dot{d}}{V} \right)
 $$
 
 Where
@@ -54,20 +58,20 @@ $$
 
 Therefore, the bank angle command can be computed from the lateral acceleration command by:
 $$
-\phi_{cmd} = \tan^{-1}\left(\frac{a_{s_{cmd}}}{g}\right)
-$$ 
+\phi_{\text{cmd}} = \tan^{-1}\!\left(\frac{a_{s,\text{cmd}}}{g}\right)
+$$
 
 ## Circling Control Law
 The circling control law (implemented in `circling_control_law.py`) uses the estimates from the thermal estimator to compute a desired circling radius and bank angle to stay within the thermal. The speed-to-fly and circling radius are solved from an optimization problem which attempts to maximize the climb rate $\dot{h}$ of the glider while accounting for the sink rate $v_s$ of the glider and the estimated vertical velocity profile $w(r)$ of the thermal. The optimization problem is given by:
 $$
-\argmax_{V, R} \dot{h} = w(R) - v_s(V, \phi)
+\underset{V, R}{\arg\max} \; \dot{h} \;=\; w(R) - v_s(V, \phi)
 $$
 Where:
 - $w(R)$ is the estimated vertical velocity at radius $R$ from the thermal center
 - $v_s(V, \phi)$ is the sink rate of the glider as a function of airspeed $V$ and bank angle $\phi$
 - The bank angle $\phi$ is related to the circling radius $R$ and airspeed $V$ by:
 $$
-\phi = \tan^{-1}\left(\frac{V^2}{g R}\right)
+\phi = \tan^{-1}\!\left(\frac{V^2}{gR}\right)
 $$
 The optimization is solved numerically using SciPy's `minimize` function, and the resulting optimal circling radius is used by the L1 guidance law to track a circular path around the estimated thermal center. The optimal airspeed is used as the speed-to-fly command for the inner-loop speed controller.
 
