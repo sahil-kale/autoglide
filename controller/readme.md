@@ -16,9 +16,11 @@ The overall reason to use L1 guidance over pure pursuit (even though they are qu
 
 ### Key Equations
 The lateral acceleration command is given by:
+
 $$
 a_{s,\text{cmd}} = 2 \frac{V^2}{L_1} \sin(\eta)
 $$
+
 Where:
 - $V$ is the current ground speed of the glider
 - $L_1$ is the lookahead distance (a tunable parameter)
@@ -27,6 +29,7 @@ Where:
 Note that this same law can be used to track straight lines and circular arcs. The difference is in how the lookahead point is computed.
 For circular arcs, the paper proposes the following method to compute the lookahead point:
 The centripetal acceleration required to follow a circular path of radius $R$ at speed $V$ is given by $a_c = \frac{V^2}{R}$. The lateral acceleration command can be set to this value to follow the arc. Rearranging the equation gives the required turn radius:
+
 $$
 \frac{V^2}{R} = 2 \frac{V^2}{L_1} \sin(\eta)
 $$
@@ -37,6 +40,7 @@ $$
 
 ### Straight Line Path Tracking
 For a straight line, the cross-track error $d$ is minimized by the above control law in a fashion similar to a gain-scheduled PD controller (equation 3). The gain scheduling comes from the fact that the velocity $V$ and lookahead distance $L_1$ can vary. For small angles, $\sin(\eta) \approx \eta$, and the acceleration command approximates to:
+
 $$
 a_{s,\text{cmd}} \approx 2 \frac{V^2}{L_1^2} \left( \frac{d}{L_1} + \frac{\dot{d}}{V} \right)
 $$
@@ -52,27 +56,33 @@ The analysis in the paper demonstrates that the control law behaves similar to t
 
 ### Bank Angle Mapping
 Within the glider kinematic model, we see that lateral acceleration is related to the roll angle $\phi$ by:
+
 $$
 a_s = g \tan(\phi)
 $$
 
 Therefore, the bank angle command can be computed from the lateral acceleration command by:
+
 $$
-\phi_{\text{cmd}} = \tan^{-1}\!\left(\frac{a_{s,\text{cmd}}}{g}\right)
+\phi_{\text{cmd}} = \tan^{-1}\left(\frac{a_{s,\text{cmd}}}{g}\right)
 $$
 
 ## Circling Control Law
 The circling control law (implemented in `circling_control_law.py`) uses the estimates from the thermal estimator to compute a desired circling radius and bank angle to stay within the thermal. The speed-to-fly and circling radius are solved from an optimization problem which attempts to maximize the climb rate $\dot{h}$ of the glider while accounting for the sink rate $v_s$ of the glider and the estimated vertical velocity profile $w(r)$ of the thermal. The optimization problem is given by:
+
 $$
-\underset{V, R}{\arg\max} \; \dot{h} \;=\; w(R) - v_s(V, \phi)
+\underset{V, R}{\arg\max} \ \dot{h} \ = \ w(R) - v_s(V, \phi)
 $$
+
 Where:
 - $w(R)$ is the estimated vertical velocity at radius $R$ from the thermal center
 - $v_s(V, \phi)$ is the sink rate of the glider as a function of airspeed $V$ and bank angle $\phi$
 - The bank angle $\phi$ is related to the circling radius $R$ and airspeed $V$ by:
+
 $$
-\phi = \tan^{-1}\!\left(\frac{V^2}{gR}\right)
+\phi = \tan^{-1}\left(\frac{V^2}{gR}\right)
 $$
+
 The optimization is solved numerically using SciPy's `minimize` function, and the resulting optimal circling radius is used by the L1 guidance law to track a circular path around the estimated thermal center. The optimal airspeed is used as the speed-to-fly command for the inner-loop speed controller.
 
 Note that this is not accounting for the impact of wind on the circling path (i.e. airspeed is assumed to be equal to ground speed), which gives us a nice closed-form solution for the bank angle. While the L1 controller will still be able to track the circular path in wind, the analysis of optimal speed and bank to fly will be incorrect if the thermal is drifting at a different speed than the glider. This is a TODO for future work, but I don't expect it to be a significant issue in practice.
