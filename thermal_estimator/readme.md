@@ -31,7 +31,7 @@ $$
 
 Where $(x_i, y_i)$ are the glider's positions and $w_{meas,i}$ are the corresponding measured vertical air velocities (measured from variometer), with N being the total number of variometer measurements used in the estimation.
 
-The terms with $\lambda_1, \lambda_2, \lambda_3$ are regularization terms to prevent large jumps in the estimated parameters between iterations. The previous estimates $W_{0,prev}, R_{th,prev}, x_{c,prev}, y_{c,prev}$ are used for this purpose.
+The terms with $\lambda_1, \lambda_2, \lambda_3$ are regularization terms to prevent large jumps in the estimated parameters between iterations. The previous estimates $W_{0,prev}, R_{th,prev}, x_{c,prev}, y_{c,prev}$ are used for this purpose. The addition of the regularization terms were found necessary to ensure stable estimates, as without them the estimates would often jump around erratically, causing the controller (which does somewhat blindly trust the estimator) to behave poorly.
 
 ## Confidence Metric
 The estimator issues a confidence metric based on the residuals of the optimization by running a chi-squared test.

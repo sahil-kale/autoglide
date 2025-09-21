@@ -19,6 +19,7 @@ The project was inspired by my interest in gliding as a sport (as I am a glider 
 - [Core Tracking Filter + State Estimator](thermal_estimator/readme.md)
 - [Guidance Control Laws](controller/readme.md)
 - [Monte Carlo Simulation + Analysis](monte_carlo/readme.md)
+- [Learnings](learnings.md)
 - [Development Notes](development.md)
 
 ## High Level Architecture
