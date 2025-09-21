@@ -37,6 +37,20 @@ s(V, \phi) = s_0(V) \cdot n^{\alpha_n} = s_0(V) \cdot \left(\frac{1}{\cos(\phi)}
 $$
 
 ## Glider Kinematics Model
+## Actuator Dynamics
+The key "actuators" from the perspective of the guidance controller are the airspeed $V$ and roll angle $\phi$. Note that in a real glider, pitch is the actual variable controlled by the pilot to set the airspeed, but for simplicity we assume the glider can directly control its airspeed and make pitch an implicit variable through the sink-rate model. The glider is assumed to have a simple first-order response to commands for these states, with time constants $\tau_V$ and $\tau_{\phi}$ respectively. The commanded airspeed and roll angle are $V_{cmd}$ and $\phi_{cmd}$.
+
+$$
+\dot{V} = \frac{1}{\tau_V} (V_{cmd} - V)
+$$
+
+$$
+\dot{\phi} = \frac{1}{\tau_{\phi}} (\phi_{cmd} - \phi)
+$$
+
+To prevent rapid, unphysical movement, the $\dot{\phi}$ and $\dot{V}$ are saturated to maximum rates $\dot{\phi}_{max}$ and $\dot{V}_{max}$ respectively.
+
+
 ### Position Kinematics
 $$
 \dot{x} = V \cos(\psi) + W_x
