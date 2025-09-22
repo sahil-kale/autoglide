@@ -38,9 +38,11 @@ The estimator issues a confidence metric based on the residuals of the optimizat
 ### Chi-Squared Test
 The chi-squared statistic attempts to quantify how well the model fits the observed data. In theory, a $\chi^2$ value of 1 indicates that all of the residuals match the expected amount of noise in the measurements. A value much greater than 1 indicates that the model is not fitting the data well (i.e., the residuals are larger than expected), while a value much less than 1 suggests that the model may be overfitting the data (i.e., the residuals are smaller than expected).
 The chi-squared statistic is calculated as:
+
 $$
 \chi^2 = \frac{1}{N} \sum_{i=0}^{N-1} \left( \frac{ w_{pred}(x_i, y_i, x_c, y_c, W_0, R_{th}) - w_{meas,i} }{ \sigma } \right)^2
 $$
+
 Where $\sigma$ is the standard deviation of the measurement noise (assumed to be known), in this case the standard deviation of noise associated with the variometer, and N is the number of measurements used in the estimation.
 
 ## Improvements
