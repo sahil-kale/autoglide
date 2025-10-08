@@ -26,18 +26,18 @@ from thermal_model.thermal_model import ThermalModel, ThermalModelParams
 from thermal_estimator.thermal_estimator import ThermalEstimator
 from utils.location import WorldFrameCoordinate
 from controller.guidance_state_machine import GuidanceStateMachine
-from simulator.utils.airplane_glyph import draw_airplane
-from simulator.visualization import SingleThermalSimVisualizer
+from legacy_simulator.utils.airplane_glyph import draw_airplane
+from legacy_simulator.visualization import SingleThermalSimVisualizer
 from vehicle_state_estimator.vehicle_state_estimator import (
     VehicleState,
     VehicleStateEstimatorPassthrough,
 )
 import dataclasses
 from utils.vector import Vector2D
-from simulator.constants import DefaultVisualizerParams
+from legacy_simulator.constants import DefaultVisualizerParams
 import json
 import datetime
-from simulator.constants import (
+from legacy_simulator.constants import (
     SIM_DT,
     ROLL_STEP_RAD,
     VEL_STEP_MS,
@@ -45,7 +45,7 @@ from simulator.constants import (
     V_MIN,
     V_MAX,
 )
-from simulator.logged_state import LoggedState
+from legacy_simulator.logged_state import LoggedState
 
 
 @dataclass
@@ -219,7 +219,7 @@ class SingleThermalGliderSimulator:
         self._last_loggedstate = log_entry
 
     def loggedstate_from_self(self) -> "LoggedState":
-        from simulator.logged_state import LoggedState
+        from legacy_simulator.logged_state import LoggedState
 
         thermal_estimate = self.thermal_estimator.get_estimate()
         assert self.thermal is not None, "Thermal model is not defined in selfulator."

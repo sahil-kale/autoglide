@@ -1,8 +1,8 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from simulator.constants import VisualizerParams
-from simulator.utils.airplane_glyph import draw_airplane
+from legacy_simulator.constants import VisualizerParams
+from legacy_simulator.utils.airplane_glyph import draw_airplane
 import imageio
 
 

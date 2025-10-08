@@ -8,9 +8,9 @@ import matplotlib as mpl
 # Ensure package root is on path (one level up from this file)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from simulator.visualization import SingleThermalSimVisualizer
-from simulator.constants import DefaultVisualizerParams
-from simulator.logged_state import LoggedState
+from legacy_simulator.visualization import SingleThermalSimVisualizer
+from legacy_simulator.constants import DefaultVisualizerParams
+from legacy_simulator.logged_state import LoggedState
 
 # --- Matplotlib keymap overrides (disable default bindings that conflict with controls) ---
 mpl.rcParams["keymap.save"] = []  # 's'

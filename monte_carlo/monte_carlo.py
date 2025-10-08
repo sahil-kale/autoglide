@@ -4,7 +4,7 @@ from copy import deepcopy
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from simulator.single_thermal_sim import (
+from legacy_simulator.single_thermal_sim import (
     SingleThermalSimParams,
     SingleThermalGliderSimulator,
 )
@@ -30,7 +30,7 @@ import concurrent.futures
 def _run_single_sim(sim_params_dict):
     """Helper function to run a single simulation. Used for multiprocessing."""
     # Reconstruct objects from dicts (to avoid pickling issues)
-    from simulator.single_thermal_sim import (
+    from legacy_simulator.single_thermal_sim import (
         SingleThermalSimParams,
         SingleThermalGliderSimulator,
     )
