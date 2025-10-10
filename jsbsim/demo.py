@@ -117,11 +117,11 @@ def main():
     # Example: neutralize primary controls (glider; aileron/elevator/rudder)
     # These are normalized [-1, 1]. Adjust if needed.
     # (If a given aircraft uses different control names, these calls are harmless no-ops.)
-    fdm.set_property_value("fcs/aileron-cmd-norm", 0.1)
-    fdm.set_property_value("fcs/elevator-cmd-norm", 0.7)
+    fdm.set_property_value("fcs/aileron-cmd-norm", 0.0)
+    fdm.set_property_value("fcs/elevator-cmd-norm", -0.151)
     fdm.set_property_value("fcs/rudder-cmd-norm", 0.0)
     # Spoiler as an example instead of throttle (gliders): keep retracted
-    fdm.set_property_value("fcs/spoiler-cmd-norm", 0.0)
+    fdm.set_property_value("fcs/speedbrake-cmd-norm", 0.0)
 
     # Write a tiny CSV log ourselves (time, pos, attitude, speed, etc.)
     fields = [
@@ -163,7 +163,7 @@ def main():
                 "theta_pitch_deg": g("attitude/theta-deg"),
                 "psi_hdg_deg": g("attitude/psi-deg"),
                 "vt_mps": g("velocities/vc-mps"),  # calibrated airspeed (approx)
-                "tas_mps": fps_to_mps(g("velocities/true-airspeed-fps")),
+                "tas_mps": g("velocities/vtrue-kts") * 0.514444,  # true airspeed
                 "alpha_deg": g("aerodynamics/alpha-deg"),
                 "beta_deg": g("aerodynamics/beta-deg"),
                 "p_roll_rate_dps": g("velocities/p-aero-degps"),
