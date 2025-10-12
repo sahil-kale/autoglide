@@ -30,18 +30,20 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 - activates 3D
 
 R_EARTH = 6371000.0  # meters
 
+
 def latlon_to_local_xy(lat_deg, lon_deg, lat0_deg, lon0_deg):
     lat = np.radians(lat_deg)
     lon = np.radians(lon_deg)
     lat0 = math.radians(lat0_deg)
     lon0 = math.radians(lon0_deg)
-    x = (lon - lon0) * math.cos(lat0) * R_EARTH   # East
-    y = (lat - lat0) * R_EARTH                    # North
+    x = (lon - lon0) * math.cos(lat0) * R_EARTH  # East
+    y = (lat - lat0) * R_EARTH  # North
     return x, y
+
 
 def zyx_euler_to_rot(psi_deg, theta_deg, phi_deg):
     """Rotation matrix R = Rz(psi) * Ry(theta) * Rx(phi), ENU with z up.
-       psi: yaw/heading (0=N, +cw to East), theta: pitch up +, phi: roll right wing down +.
+    psi: yaw/heading (0=N, +cw to East), theta: pitch up +, phi: roll right wing down +.
     """
     ps = math.radians(psi_deg)
     th = math.radians(theta_deg)
@@ -51,16 +53,11 @@ def zyx_euler_to_rot(psi_deg, theta_deg, phi_deg):
     cθ, sθ = math.cos(th), math.sin(th)
     cφ, sφ = math.cos(ph), math.sin(ph)
 
-    Rz = np.array([[ cψ, -sψ, 0],
-                   [ sψ,  cψ, 0],
-                   [  0,   0, 1]])
-    Ry = np.array([[ cθ, 0, sθ],
-                   [  0, 1,  0],
-                   [-sθ, 0, cθ]])
-    Rx = np.array([[1,  0,   0],
-                   [0, cφ, -sφ],
-                   [0, sφ,  cφ]])
+    Rz = np.array([[cψ, -sψ, 0], [sψ, cψ, 0], [0, 0, 1]])
+    Ry = np.array([[cθ, 0, sθ], [0, 1, 0], [-sθ, 0, cθ]])
+    Rx = np.array([[1, 0, 0], [0, cφ, -sφ], [0, sφ, cφ]])
     return Rz @ Ry @ Rx
+
 
 def parse_args():
     ap = argparse.ArgumentParser()
@@ -71,6 +68,7 @@ def parse_args():
     ap.add_argument("--save-mp4", type=str, default=None)
     ap.add_argument("--dpi", type=int, default=150)
     return ap.parse_args()
+
 
 def main():
     args = parse_args()
@@ -105,10 +103,12 @@ def main():
     xmin, xmax = np.min(x), np.max(x)
     ymin, ymax = np.min(y), np.max(y)
     zmin, zmax = np.min(z), np.max(z)
+
     # add margins
     def pad(lo, hi, frac=0.08):
         span = max(1.0, hi - lo)
-        return lo - frac*span, hi + frac*span
+        return lo - frac * span, hi + frac * span
+
     xmin, xmax = pad(xmin, xmax)
     ymin, ymax = pad(ymin, ymax)
     zmin, zmax = pad(zmin, zmax)
@@ -133,12 +133,12 @@ def main():
     ax3d.plot(x, y, z, lw=1, alpha=0.15)
 
     # Dynamic trail + live point + body-axis triad
-    trail_line, = ax3d.plot([], [], [], lw=2)
-    point_marker, = ax3d.plot([], [], [], marker="o", ms=6)
+    (trail_line,) = ax3d.plot([], [], [], lw=2)
+    (point_marker,) = ax3d.plot([], [], [], marker="o", ms=6)
     # body axes (forward, right, up) lines
-    body_fwd_line, = ax3d.plot([], [], [], lw=2)
-    body_right_line, = ax3d.plot([], [], [], lw=2)
-    body_up_line, = ax3d.plot([], [], [], lw=2)
+    (body_fwd_line,) = ax3d.plot([], [], [], lw=2)
+    (body_right_line,) = ax3d.plot([], [], [], lw=2)
+    (body_up_line,) = ax3d.plot([], [], [], lw=2)
 
     # Altitude strip
     ax_alt.set_title("Altitude vs Time")
@@ -147,7 +147,9 @@ def main():
     ax_alt.plot(t, z, lw=1, alpha=0.6)
     ymin_alt, ymax_alt = ax_alt.get_ylim()
     # vertical cursor (fix: set_data wants sequences)
-    alt_cursor_line = ax_alt.plot([t[0], t[0]], [ymin_alt, ymax_alt], linestyle="--", lw=1)[0]
+    alt_cursor_line = ax_alt.plot(
+        [t[0], t[0]], [ymin_alt, ymax_alt], linestyle="--", lw=1
+    )[0]
 
     # Frame scheduling
     dt_sim_per_frame = args.speed * (args.interval / 1000.0)
@@ -160,8 +162,9 @@ def main():
     path_scale = max(1.0, 0.05 * max(xmax - xmin, ymax - ymin))
     triad_len = max(10.0, 0.15 * path_scale)
 
-    info_txt = ax3d.text2D(0.02, 0.98, "", transform=ax3d.transAxes,
-                           va="top", ha="left")
+    info_txt = ax3d.text2D(
+        0.02, 0.98, "", transform=ax3d.transAxes, va="top", ha="left"
+    )
 
     def update(frame_idx):
         i = indices[frame_idx]
@@ -183,13 +186,19 @@ def main():
         # Body axes from Euler ZYX
         R = zyx_euler_to_rot(ψi, θi, φi)
         origin = np.array([xi, yi, zi])
-        fwd = origin + R @ np.array([triad_len, 0.0, 0.0])   # x_b (forward)
-        rgt = origin + R @ np.array([0.0, triad_len*0.7, 0.0])  # y_b (right)
-        upv = origin + R @ np.array([0.0, 0.0, triad_len*0.5])  # z_b (up)
+        fwd = origin + R @ np.array([triad_len, 0.0, 0.0])  # x_b (forward)
+        rgt = origin + R @ np.array([0.0, triad_len * 0.7, 0.0])  # y_b (right)
+        upv = origin + R @ np.array([0.0, 0.0, triad_len * 0.5])  # z_b (up)
 
-        body_fwd_line.set_data_3d([origin[0], fwd[0]], [origin[1], fwd[1]], [origin[2], fwd[2]])
-        body_right_line.set_data_3d([origin[0], rgt[0]], [origin[1], rgt[1]], [origin[2], rgt[2]])
-        body_up_line.set_data_3d([origin[0], upv[0]], [origin[1], upv[1]], [origin[2], upv[2]])
+        body_fwd_line.set_data_3d(
+            [origin[0], fwd[0]], [origin[1], fwd[1]], [origin[2], fwd[2]]
+        )
+        body_right_line.set_data_3d(
+            [origin[0], rgt[0]], [origin[1], rgt[1]], [origin[2], rgt[2]]
+        )
+        body_up_line.set_data_3d(
+            [origin[0], upv[0]], [origin[1], upv[1]], [origin[2], upv[2]]
+        )
 
         # Alt strip cursor (fix)
         ymin_alt, ymax_alt = ax_alt.get_ylim()
@@ -202,11 +211,19 @@ def main():
             f"ψ={ψi:5.1f}°, θ={θi:5.1f}°, φ={φi:5.1f}°"
         )
 
-        return (trail_line, point_marker,
-                body_fwd_line, body_right_line, body_up_line,
-                alt_cursor_line, info_txt)
+        return (
+            trail_line,
+            point_marker,
+            body_fwd_line,
+            body_right_line,
+            body_up_line,
+            alt_cursor_line,
+            info_txt,
+        )
 
-    ani = FuncAnimation(fig, update, frames=len(indices), interval=args.interval, blit=False)
+    ani = FuncAnimation(
+        fig, update, frames=len(indices), interval=args.interval, blit=False
+    )
 
     if args.save_mp4:
         out = Path(args.save_mp4)
@@ -217,6 +234,7 @@ def main():
 
     plt.tight_layout()
     plt.show()
+
 
 if __name__ == "__main__":
     main()

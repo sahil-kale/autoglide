@@ -37,9 +37,18 @@ GLIDER_CANDIDATES = [
     "sailplane",
 ]
 
-def m_to_ft(m): return m * 3.280839895
-def mps_to_kts(mps): return mps * 1.943844492
-def fps_to_mps(fps): return fps * 0.3048
+
+def m_to_ft(m):
+    return m * 3.280839895
+
+
+def mps_to_kts(mps):
+    return mps * 1.943844492
+
+
+def fps_to_mps(fps):
+    return fps * 0.3048
+
 
 def try_load_glider(fdm, candidates):
     """Try model names in order; return the first that loads, else None."""
@@ -51,20 +60,70 @@ def try_load_glider(fdm, candidates):
             pass
     return None
 
+
 def build_argparser():
-    ap = argparse.ArgumentParser(description="Run a minimal JSBSim sim with a glider and log to CSV.")
-    ap.add_argument("--sim-time", type=float, default=SIM_TIME_SECONDS_DEFAULT, help="Simulation duration in seconds")
-    ap.add_argument("--dt", type=float, default=DT_DEFAULT, help="Fixed time step (seconds)")
-    ap.add_argument("--h0-m", type=float, default=INITIAL_HEIGHT_M_DEFAULT, help="Initial altitude (meters MSL)")
-    ap.add_argument("--vt0-mps", type=float, default=INITIAL_VEL_MPS_DEFAULT, help="Initial speed (m/s, approx TAS/CAS)")
-    ap.add_argument("--lat0-deg", type=float, default=INITIAL_LAT_DEG_DEFAULT, help="Initial latitude (deg)")
-    ap.add_argument("--lon0-deg", type=float, default=INITIAL_LON_DEG_DEFAULT, help="Initial longitude (deg)")
-    ap.add_argument("--psi0-deg", type=float, default=INITIAL_HEADING_DEG_DEFAULT, help="Initial true heading (deg)")
-    ap.add_argument("--output-dir", type=str, default=OUTPUT_DIR_DEFAULT, help="Directory to write the CSV log")
-    ap.add_argument("--aircraft", type=str, default=None, help="Force a specific aircraft name (overrides glider search)")
-    ap.add_argument("--root", type=str, default=os.environ.get("JSBSIM_ROOT", None),
-                    help="JSBSim root directory (defaults to $JSBSIM_ROOT if set)")
+    ap = argparse.ArgumentParser(
+        description="Run a minimal JSBSim sim with a glider and log to CSV."
+    )
+    ap.add_argument(
+        "--sim-time",
+        type=float,
+        default=SIM_TIME_SECONDS_DEFAULT,
+        help="Simulation duration in seconds",
+    )
+    ap.add_argument(
+        "--dt", type=float, default=DT_DEFAULT, help="Fixed time step (seconds)"
+    )
+    ap.add_argument(
+        "--h0-m",
+        type=float,
+        default=INITIAL_HEIGHT_M_DEFAULT,
+        help="Initial altitude (meters MSL)",
+    )
+    ap.add_argument(
+        "--vt0-mps",
+        type=float,
+        default=INITIAL_VEL_MPS_DEFAULT,
+        help="Initial speed (m/s, approx TAS/CAS)",
+    )
+    ap.add_argument(
+        "--lat0-deg",
+        type=float,
+        default=INITIAL_LAT_DEG_DEFAULT,
+        help="Initial latitude (deg)",
+    )
+    ap.add_argument(
+        "--lon0-deg",
+        type=float,
+        default=INITIAL_LON_DEG_DEFAULT,
+        help="Initial longitude (deg)",
+    )
+    ap.add_argument(
+        "--psi0-deg",
+        type=float,
+        default=INITIAL_HEADING_DEG_DEFAULT,
+        help="Initial true heading (deg)",
+    )
+    ap.add_argument(
+        "--output-dir",
+        type=str,
+        default=OUTPUT_DIR_DEFAULT,
+        help="Directory to write the CSV log",
+    )
+    ap.add_argument(
+        "--aircraft",
+        type=str,
+        default=None,
+        help="Force a specific aircraft name (overrides glider search)",
+    )
+    ap.add_argument(
+        "--root",
+        type=str,
+        default=os.environ.get("JSBSIM_ROOT", None),
+        help="JSBSim root directory (defaults to $JSBSIM_ROOT if set)",
+    )
     return ap
+
 
 def main():
     args = build_argparser().parse_args()
@@ -81,8 +140,10 @@ def main():
     if args.aircraft:
         ok = fdm.load_model(args.aircraft)
         if not ok:
-            raise RuntimeError(f"Could not load requested aircraft '{args.aircraft}'. "
-                               f"Check your JSBSIM_ROOT and model name.")
+            raise RuntimeError(
+                f"Could not load requested aircraft '{args.aircraft}'. "
+                f"Check your JSBSIM_ROOT and model name."
+            )
         model_name = args.aircraft
     else:
         model_name = try_load_glider(fdm, GLIDER_CANDIDATES)
@@ -108,7 +169,9 @@ def main():
 
     # Apply the initial condition
     if not fdm.run_ic():
-        raise RuntimeError("run_ic() failed; check IC properties and model availability.")
+        raise RuntimeError(
+            "run_ic() failed; check IC properties and model availability."
+        )
 
     # Use fixed time step
     dt = float(args.dt)
@@ -126,13 +189,22 @@ def main():
     # Write a tiny CSV log ourselves (time, pos, attitude, speed, etc.)
     fields = [
         "time_s",
-        "lat_deg", "lon_deg",
+        "lat_deg",
+        "lon_deg",
         "alt_msl_m",
-        "phi_roll_deg", "theta_pitch_deg", "psi_hdg_deg",
-        "vt_mps", "tas_mps",
-        "alpha_deg", "beta_deg",
-        "p_roll_rate_dps", "q_pitch_rate_dps", "r_yaw_rate_dps",
-        "nx_g", "ny_g", "nz_g",
+        "phi_roll_deg",
+        "theta_pitch_deg",
+        "psi_hdg_deg",
+        "vt_mps",
+        "tas_mps",
+        "alpha_deg",
+        "beta_deg",
+        "p_roll_rate_dps",
+        "q_pitch_rate_dps",
+        "r_yaw_rate_dps",
+        "nx_g",
+        "ny_g",
+        "nz_g",
     ]
 
     with out_csv.open("w", newline="") as f:
@@ -178,8 +250,11 @@ def main():
             sim_time += dt
 
     print(f"[OK] Model: {model_name}")
-    print(f"[OK] Simulated {args.sim_time:.2f}s at dt={dt:.4f}s -> {int(args.sim_time/dt)} steps")
+    print(
+        f"[OK] Simulated {args.sim_time:.2f}s at dt={dt:.4f}s -> {int(args.sim_time/dt)} steps"
+    )
     print(f"[OK] CSV written: {out_csv.resolve()}")
+
 
 if __name__ == "__main__":
     main()
