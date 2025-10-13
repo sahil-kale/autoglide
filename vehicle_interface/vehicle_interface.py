@@ -8,7 +8,9 @@ class ControlCommands:
     aileron_deflection_norm: (
         float  # +ve = right aileron down / roll right (right wing down, p > 0)
     )
-    elevator_deflection_norm: float  # +ve = elevator trailing edge down / (pitch down, q < 0)
+    elevator_deflection_norm: (
+        float  # +ve = elevator trailing edge down / (pitch down, q < 0)
+    )
     rudder_deflection_norm: float  # +ve = trailing edge left / yaw left (r > 0)
     spoiler_deflection: float  # ≥ 0 = spoilers deployed (symmetric lift dump)
 
