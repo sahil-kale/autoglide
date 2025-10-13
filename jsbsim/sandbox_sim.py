@@ -23,10 +23,11 @@ class JSBSimVehicleInitialCond:
 @dataclass
 class JSBSimVehicleConfig:
     model_name: str
-    aileron_max_deflection_rad: float
-    elevator_max_deflection_rad: float
-    rudder_max_deflection_rad: float
+    aileron_multiplier: float
+    elevator_multiplier: float
+    rudder_multiplier: float
     spoiler_max_deflection: float  # [0, 1], fraction of full def
+
     root_dir: str = None  # JSBSim root directory, or None to use default search paths
 
 
@@ -35,7 +36,7 @@ class JSBSimSimParams:
     dt_s: float = 0.01
 
 
-class JSBSim_SingleLandingSim:
+class JSBSim_Sandbox:
     def __init__(
         self,
         initial_cond: JSBSimVehicleInitialCond,
@@ -63,22 +64,22 @@ class JSBSim_SingleLandingSim:
         self.initial_cond = initial_cond
         self.vehicle_config = vehicle_config
 
-    def _normalize_and_clip_axis(self, value: float, max_deflection: float) -> float:
-        norm_value = value / max_deflection
+    def _normalize_and_clip_axis(self, value: float, multiplier: float) -> float:
+        norm_value = value * multiplier
         return np.clip(norm_value, -1.0, 1.0)
 
     def step(self, control_commands: ControlCommands) -> MockSensors:
         aileron_cmd_norm = self._normalize_and_clip_axis(
-            control_commands.aileron_deflection_rad,
-            self.vehicle_config.aileron_max_deflection_rad,
+            control_commands.aileron_deflection_norm,
+            self.vehicle_config.aileron_multiplier,
         )
         elevator_cmd_norm = self._normalize_and_clip_axis(
-            control_commands.elevator_deflection_rad,
-            self.vehicle_config.elevator_max_deflection_rad,
+            control_commands.elevator_deflection_norm,
+            self.vehicle_config.elevator_multiplier,
         )
         rudder_cmd_norm = self._normalize_and_clip_axis(
-            control_commands.rudder_deflection_rad,
-            self.vehicle_config.rudder_max_deflection_rad,
+            control_commands.rudder_deflection_norm,
+            self.vehicle_config.rudder_multiplier,
         )
         spoiler_cmd_norm = np.clip(control_commands.spoiler_deflection, 0, 1)
 
@@ -157,14 +158,15 @@ if __name__ == "__main__":
     vehicle_config = JSBSimVehicleConfig(
         model_name=args.aircraft,
         root_dir=args.jsbsim_root,
-        aileron_max_deflection_rad=0.35,
-        elevator_max_deflection_rad=0.35,
-        rudder_max_deflection_rad=0.35,
+        aileron_multiplier=1.0,
+        elevator_multiplier=1.0,
+        rudder_multiplier=1.0,
         spoiler_max_deflection=1.0,
     )
 
-    sim = JSBSim_SingleLandingSim(initial_cond, sim_params, vehicle_config)
+    sim = JSBSim_Sandbox(initial_cond, sim_params, vehicle_config)
     vehicle_interface = VehicleInterface()
+    vehicle_interface.control_commands.elevator_deflection_norm = 0.0
 
     num_steps = int(args.duration / args.dt)
     for step in range(num_steps):

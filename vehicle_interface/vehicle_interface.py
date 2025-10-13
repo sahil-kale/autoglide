@@ -5,11 +5,11 @@ from utils.quaternion import Quaternion
 
 @dataclass
 class ControlCommands:
-    aileron_deflection_rad: (
+    aileron_deflection_norm: (
         float  # +ve = right aileron down / roll right (right wing down, p > 0)
     )
-    elevator_deflection_rad: float  # +ve = trailing edge up / pitch up (q > 0)
-    rudder_deflection_rad: float  # +ve = trailing edge left / yaw left (r > 0)
+    elevator_deflection_norm: float  # +ve = elevator trailing edge down / (pitch down, q < 0)
+    rudder_deflection_norm: float  # +ve = trailing edge left / yaw left (r > 0)
     spoiler_deflection: float  # ≥ 0 = spoilers deployed (symmetric lift dump)
 
 
