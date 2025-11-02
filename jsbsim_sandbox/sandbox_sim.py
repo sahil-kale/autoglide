@@ -17,7 +17,9 @@ class JSBSimVehicleInitialCond:
     vt0_mps: float = 40.0
     lat0_deg: float = 37.4275
     lon0_deg: float = -122.1697
-    psi0_deg: float = 90.0
+    psi0_rad: float = 0.0 # initial heading angle
+    phi0_rad: float = 0.0 # initial roll angle
+    theta0_rad: float = 0.0 # initial pitch angle
 
 
 @dataclass
@@ -56,7 +58,9 @@ class JSBSim_Sandbox:
         self.fdm["ic/vt-kts"] = units.mps_to_knots(initial_cond.vt0_mps)
         self.fdm["ic/lat-gc-deg"] = initial_cond.lat0_deg
         self.fdm["ic/long-gc-deg"] = initial_cond.lon0_deg
-        self.fdm["ic/psi-true-deg"] = initial_cond.psi0_deg
+        self.fdm["ic/phi-rad"] = initial_cond.phi0_rad
+        self.fdm["ic/theta-rad"] = initial_cond.theta0_rad
+        self.fdm["ic/psi-rad"] = initial_cond.psi0_rad
 
         self.fdm.run_ic()
 
@@ -131,7 +135,7 @@ if __name__ == "__main__":
         "--lon0_deg", type=float, default=-122.1697, help="Initial longitude in degrees"
     )
     parser.add_argument(
-        "--psi0_deg", type=float, default=90.0, help="Initial heading in degrees"
+        "--psi0_rad", type=float, default=0.0, help="Initial heading in radians"
     )
     parser.add_argument(
         "--dt", type=float, default=0.01, help="Simulation time step in seconds"
@@ -152,7 +156,9 @@ if __name__ == "__main__":
         vt0_mps=args.vt0_mps,
         lat0_deg=args.lat0_deg,
         lon0_deg=args.lon0_deg,
-        psi0_deg=args.psi0_deg,
+        psi0_rad=args.psi0_rad,
+        phi0_rad=0.0,
+        theta0_rad=0.0,
     )
     sim_params = JSBSimSimParams(dt_s=args.dt)
     vehicle_config = JSBSimVehicleConfig(
