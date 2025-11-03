@@ -44,7 +44,7 @@ def integrate_yaw(t, r, psi0=0.0):
 def integrate_position(t, vt, psi, h):
     x = np.zeros_like(t)
     y = np.zeros_like(t)
-    z = -h.copy()  # altitude up
+    z = h.copy() 
     dt = np.diff(t)
     vx = vt * np.cos(psi)
     vy = vt * np.sin(psi)
@@ -98,18 +98,26 @@ def animate_single_window(
 
     # 3D axis
     ax3d = fig.add_subplot(gs[0, 0], projection='3d')
-    margin = max(1.0, 0.05 * max(1.0, np.max(np.hypot(x-x[0], y-y[0]))))
-    xmin, xmax = np.min(x)-margin, np.max(x)+margin
-    ymin, ymax = np.min(y)-margin, np.max(y)+margin
-    zmin, zmax = np.min(z)-margin, np.max(z)+margin
-    ax3d.set_xlim([xmin, xmax])
-    ax3d.set_ylim([ymin, ymax])
-    ax3d.set_zlim([zmin, zmax])
+
+    # ---- Compute a constant box half-span R so axes stay equal and constant size ----
+    # Use overall extents to pick a reasonable fixed radius, add a margin.
+    xrange = np.max(x) - np.min(x)
+    yrange = np.max(y) - np.min(y)
+    zrange = np.max(z) - np.min(z)
+    base_span = max(xrange, yrange, zrange)
+    R = 10
+    # Make axes scale equal
+    try:
+        ax3d.set_box_aspect((1, 1, 1))
+    except Exception:
+        pass  # older Matplotlib versions
+
     ax3d.set_xlabel("x [m]"); ax3d.set_ylabel("y [m]"); ax3d.set_zlabel("z [m]")
-    ax3d.set_title("3D Trajectory + Wireframe")
+    ax3d.set_title("3D Trajectory + Wireframe (centered & equal-scale)")
     traj3d, = ax3d.plot([], [], [], lw=1)
-    wf = glider_wireframe(scale=max(1.0, 0.05*(xmax-xmin)))
+    wf = glider_wireframe(scale=max(1.0, 0.1 * R))  # scale wireframe relative to box size
     wf_lines = [ax3d.plot([], [], [], lw=2)[0] for _ in wf]
+    ax3d.view_init(elev=20, azim=-60)
 
     # Scopes
     ax_act = fig.add_subplot(gs[1, 0])
@@ -137,10 +145,13 @@ def animate_single_window(
     else:
         ax_ang.set_xlabel("Time [s]")
 
-    # Precompute constant 3D view
-    ax3d.view_init(elev=20, azim=-60)
-
     def init():
+        # Initial centers/limits for 3D (center at first sample)
+        cx, cy, cz = x[0], y[0], z[0]
+        ax3d.set_xlim(cx - R, cx + R)
+        ax3d.set_ylim(cy - R, cy + R)
+        ax3d.set_zlim(cz - R, cz + R)
+
         # Limits for initial window on scopes
         ax_act.set_xlim(t[0], t[min(win_n, N-1)])
         ax_ang.set_xlim(t[0], t[min(win_n, N-1)])
@@ -153,25 +164,30 @@ def animate_single_window(
         i0 = max(0, i - win_n)
         tx = t[i0:i+1]
 
-        # --- 3D ---
+        # --- 3D (centered around current pose with constant span R) ---
         traj3d.set_data(x[:i+1], y[:i+1])
         traj3d.set_3d_properties(z[:i+1])
-        R = rotation_matrix(phi[i], theta[i], psi[i])
-        pos = np.array([x[i], y[i], z[i]])
-        segs = transform_wireframe(wf, R, pos)
+
+        # Center axes on current position, keep equal and constant size
+        cx, cy, cz = x[i], y[i], z[i]
+        ax3d.set_xlim(cx - R, cx + R)
+        ax3d.set_ylim(cy - R, cy + R)
+        ax3d.set_zlim(cz - R, cz + R)
+
+        Rb = rotation_matrix(phi[i], theta[i], psi[i])
+        pos = np.array([cx, cy, cz])
+        segs = transform_wireframe(wf, Rb, pos)
         for ln, seg in zip(wf_lines, segs):
             ln.set_data(seg[0, :], seg[1, :])
             ln.set_3d_properties(seg[2, :])
 
         # --- Scopes ---
-        # Actuators
         l_ua.set_data(tx, ua[i0:i+1])
         l_ue.set_data(tx, ue[i0:i+1])
         l_ur.set_data(tx, ur[i0:i+1])
         ax_act.relim(); ax_act.autoscale_view()
         ax_act.set_xlim(tx[0], tx[-1])
 
-        # Angles
         l_phi.set_data(tx, phi[i0:i+1])
         l_theta.set_data(tx, theta[i0:i+1])
         l_psi.set_data(tx, psi[i0:i+1])
@@ -202,6 +218,7 @@ def animate_single_window(
             plt.show()
     else:
         plt.show()
+
 
 # ---------- CLI ----------
 
