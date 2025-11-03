@@ -18,9 +18,9 @@ See [here](../vehicle_interface/readme.md#convention) for a description of the a
 - $\delta_{rudder}$: Rudder deflection (normalized -1 to 1, where positive deflects rudder to the right, inducing yaw to the right)
 
 #### State Variables:
-- $\omega_{roll}$: Body angular rate about the x-axis (roll rate - rad/s)
-- $\omega_{pitch}$: Body angular rate about the y-axis (pitch rate - rad/s)
-- $\omega_{yaw}$: Body angular rate about the z-axis (yaw rate - rad/s)
+- $\omega_{p}$: Body angular rate about the x-axis (roll rate - rad/s)
+- $\omega_{q}$: Body angular rate about the y-axis (pitch rate - rad/s)
+- $\omega_{r}$: Body angular rate about the z-axis (yaw rate - rad/s)
 
 ## System Identification
 In order to determine the inner loop controller structure (initally) and gains (ultimately), a system identification procedure is required. This involves 
