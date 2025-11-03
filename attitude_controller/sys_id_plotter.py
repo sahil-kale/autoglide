@@ -252,7 +252,7 @@ def main():
     ap = argparse.ArgumentParser(description="Single-window 3D + oscilloscope plotter for perturber CSV logs")
     ap.add_argument("--csv", required=True, help="Path to CSV produced by perturber.py")
     ap.add_argument("--window_s", type=float, default=10.0, help="Oscilloscope window [s]")
-    ap.add_argument("--speed", type=float, default=1.0, help="Animation speed multiplier (>1 is faster)")
+    ap.add_argument("--speed", type=float, default=10.0, help="Animation speed multiplier (>1 is faster)")
     ap.add_argument("--show-rates", action="store_true", help="Include p/q/r subplot")
     ap.add_argument("--show-beta", action="store_true", help="Include beta subplot")
     ap.add_argument("--save", type=str, default=None, help="Optional: save MP4 (requires ffmpeg)")

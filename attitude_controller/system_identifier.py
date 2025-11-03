@@ -1,64 +1,42 @@
 #!/usr/bin/env python3
 """
-System ID for inner-loop (rate) models using JSBSim_Sandbox.
+perturber.py
 
-We identify first-order rate dynamics for:
-  p_dot = a_p * p + b_p * delta_a
-  q_dot = a_q * q + b_q * delta_e
-  r_dot = a_r * r + b_r * delta_r
+1) trim_for_operating_point: find trim control biases for a target roll/pitch (inertial)
+   while driving sideslip beta → 0. Ignores yaw requirements (coordinated-turn assumption).
 
-Then report:
-  tau_p = -1/a_p,  k_phi_rate_to_int = b_p/(-a_p)
-  tau_q = -1/a_q,  k_theta_rate_to_int = b_q/(-a_q)
-  tau_r = -1/a_r
+2) run_perturbation: apply PRBS perturbations on aileron, elevator, rudder (sequential segments).
 
-Outputs:
-  - CSV log of the experiment
-  - JSON with identified parameters
+3) Log timeseries to CSV compatible with your existing sys-ID tooling:
+   header: t,phi,theta,p,q,r,beta,u_a,u_e,u_r,vt,h
 """
 
 import argparse
-import json
 import math
 import os
 import sys
-from dataclasses import asdict
-
 import numpy as np
 
-# --- Import your sandbox + interfaces exactly like your app does ---
+# --- repo imports (as in your sandbox file) ---
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import units
-from vehicle_interface.vehicle_interface import ControlCommands, MockSensors  # noqa: E402
+from vehicle_interface.vehicle_interface import ControlCommands, MockSensors, VehicleInterface  # noqa: E402
 
-# If JSBSim_Sandbox is not in this file, import from where you placed it.
-# Here we assume it's in the same repo path as shown in your snippet.
-from jsbsim_sandbox.sandbox_sim import (  # <-- replace with the actual module path that defines JSBSim_Sandbox
-    JSBSim_Sandbox,
-    JSBSimVehicleConfig,
-    JSBSimVehicleInitialCond,
-    JSBSimSimParams,
-)
+# If you place this file standalone, replace the above with:
+from jsbsim_sandbox.sandbox_sim import JSBSim_Sandbox, JSBSimVehicleInitialCond, JSBSimVehicleConfig, JSBSimSimParams
 
 
 # -------------------- helpers --------------------
 
 def compute_beta_rad(fdm) -> float:
-    """Compute sideslip β ≈ atan2(v, u) in body frame."""
-    # JSBSim exposes u/v in ft/s; unit choice cancels in atan2
+    """Sideslip β ≈ atan2(v, u) in body frame. JSBSim velocities in ft/s."""
     u_fps = fdm["velocities/u-fps"]
     v_fps = fdm["velocities/v-fps"]
     return math.atan2(v_fps, u_fps)
 
 
 def prbs_sequence(num_steps: int, bit_len: int, amplitude: float, seed: int = 1):
-    """
-    Generate a simple PRBS-like +/- amplitude sequence with piecewise-constant segments.
-
-    num_steps : total samples
-    bit_len   : samples per bit (segment length)
-    amplitude : magnitude of +/- step
-    """
+    """Simple ±amplitude PRBS-like sequence with piecewise-constant segments."""
     rng = np.random.default_rng(seed)
     num_bits = max(1, int(np.ceil(num_steps / bit_len)))
     bits = rng.choice([-1.0, 1.0], size=num_bits)
@@ -66,138 +44,35 @@ def prbs_sequence(num_steps: int, bit_len: int, amplitude: float, seed: int = 1)
     return amplitude * u
 
 
-def fit_first_order_arx(y: np.ndarray, u: np.ndarray, dt: float):
-    """
-    Fit discrete ARX(1,0) with bias: y[k+1] = a_d y[k] + b_d u[k] + c_d
-    Return (a_c, b_c, c_d) in continuous time using exact ZOH conversion.
+# -------------------- 1) TRIM --------------------
 
-    ZOH relations for x_dot = a_c x + b_c u:
-      a_d = exp(a_c dt)
-      b_d = \int_0^dt exp(a_c τ) dτ * b_c = ((exp(a_c dt) - 1)/a_c) * b_c
-      => a_c = ln(a_d)/dt
-         b_c = b_d * a_c / (exp(a_c dt) - 1)     (use b_c ≈ b_d/dt if a_c ~ 0)
-    """
-    assert y.ndim == 1 and u.ndim == 1 and len(y) == len(u)
-    yk = y[:-1]
-    yk1 = y[1:]
-    uk = u[:-1]
-
-    # Design matrix [y[k], u[k], 1] -> y[k+1]
-    Phi = np.column_stack([yk, uk, np.ones_like(yk)])
-    theta, *_ = np.linalg.lstsq(Phi, yk1, rcond=None)
-    a_d, b_d, c_d = theta
-
-    # Stabilize/log guard
-    if a_d <= 0:
-        # If noise yields non-physical a_d <= 0, clamp slightly positive
-        a_d = max(a_d, 1e-6)
-
-    a_c = math.log(a_d) / dt
-    exp_ad = math.exp(a_c * dt)
-    if abs(a_c) < 1e-6:
-        b_c = b_d / dt
-    else:
-        b_c = b_d * a_c / (exp_ad - 1.0)
-
-    return a_c, b_c, c_d, a_d, b_d
-
-
-def summarize_rate_channel(name: str, a_c: float, b_c: float):
-    """Return a small dict with nice derived quantities for a rate channel."""
-    out = {
-        "a_c": a_c,
-        "b_c": b_c,
-        "tau_s": None,
-        "k_rate_DC": None,            # DC gain of u->rate (b_c / -a_c)
-        "k_rate_to_integrator": None  # cascaded gain for angle plant: b_c / -a_c
-    }
-    if a_c < 0.0:
-        out["tau_s"] = -1.0 / a_c
-        out["k_rate_DC"] = b_c / (-a_c)
-        out["k_rate_to_integrator"] = b_c / (-a_c)
-    return out
-
-
-# -------------------- main experiment --------------------
-
-def run_sysid(
-    aircraft: str,
-    jsbsim_root: str,
-    dt: float,
-    settle_s: float,
-    seg_s: float,
-    aileron_amp: float,
-    elevator_amp: float,
-    rudder_amp: float,
-    prbs_bit_s: float,
-    duration_s: float,
-    seed: int,
-    out_dir: str,
+def trim_for_operating_point(
+    sim: JSBSim_Sandbox,
+    phi_ref_rad: float,
+    theta_ref_rad: float,
+    settle_s: float = 1.0,
+    hold_s: float = 5.0,
+    dt: float = 0.01,
+    gains=None,
 ):
-    os.makedirs(out_dir, exist_ok=True)
+    """
+    Drive (phi, theta) → (phi_ref, theta_ref) and beta → 0 using a gentle PD/PI trim-hold.
+    We ignore yaw constraints; any r that appears is not controlled here.
 
-    initial_cond = JSBSimVehicleInitialCond(
-        h0_m=800.0,
-        vt0_mps=40.0,
-        lat0_deg=37.4275,
-        lon0_deg=-122.1697,
-        psi0_rad=0.0,
-        phi0_rad=0.0,
-        theta0_rad=0.0,
-    )
-    sim_params = JSBSimSimParams(dt_s=dt)
-    vehicle_config = JSBSimVehicleConfig(
-        model_name=aircraft,
-        root_dir=jsbsim_root,
-        aileron_multiplier=1.0,
-        elevator_multiplier=1.0,
-        rudder_multiplier=1.0,
-        spoiler_max_deflection=1.0,
-    )
-    sim = JSBSim_Sandbox(initial_cond, sim_params, vehicle_config)
+    Returns:
+      biases: dict with 'u_a_bias', 'u_e_bias', 'u_r_bias' (normalized)
+      final_state: dict snapshot at the end (phi, theta, beta, p, q, r)
+    """
+    if gains is None:
+        gains = {
+            "kp_phi": 0.8,   "kd_p": 0.25,
+            "kp_theta": 0.8, "kd_q": 0.25,
+            "kp_beta": 0.4,  "ki_beta": 0.05,  # small integral to wipe steady β
+        }
 
-    # Build an experiment timeline:
-    # [settle] + [aileron PRBS] + [elevator PRBS] + [rudder PRBS]
-    n_settle = int(round(settle_s / dt))
-    n_seg = int(round(seg_s / dt))
-    n_total = n_settle + 3 * n_seg
-    if duration_s is not None:
-        n_total = min(n_total, int(round(duration_s / dt)))
+    total_steps = int(round((settle_s + hold_s) / dt))
+    beta_int = 0.0
 
-    bit_len = max(1, int(round(prbs_bit_s / dt)))
-    u_a = np.zeros(n_total)
-    u_e = np.zeros(n_total)
-    u_r = np.zeros(n_total)
-
-    # Aileron segment
-    if n_total > n_settle:
-        nA = min(n_seg, n_total - n_settle)
-        u_a[n_settle:n_settle + nA] = prbs_sequence(nA, bit_len, aileron_amp, seed + 1)
-
-    # Elevator segment
-    idx_E_start = n_settle + n_seg
-    if n_total > idx_E_start:
-        nE = min(n_seg, n_total - idx_E_start)
-        u_e[idx_E_start:idx_E_start + nE] = prbs_sequence(nE, bit_len, elevator_amp, seed + 2)
-
-    # Rudder segment
-    idx_R_start = n_settle + 2 * n_seg
-    if n_total > idx_R_start:
-        nR = min(n_seg, n_total - idx_R_start)
-        u_r[idx_R_start:idx_R_start + nR] = prbs_sequence(nR, bit_len, rudder_amp, seed + 3)
-
-    # Storage
-    t = np.arange(n_total) * dt
-    phi = np.zeros(n_total)
-    theta = np.zeros(n_total)
-    p = np.zeros(n_total)
-    q = np.zeros(n_total)
-    r = np.zeros(n_total)
-    beta = np.zeros(n_total)
-    vt = np.zeros(n_total)
-    h = np.zeros(n_total)
-
-    # Controls (normalized) and run
     cc = ControlCommands(
         aileron_deflection_norm=0.0,
         elevator_deflection_norm=0.0,
@@ -205,14 +80,157 @@ def run_sysid(
         spoiler_deflection=0.0,
     )
 
-    for k in range(n_total):
-        cc.aileron_deflection_norm = float(u_a[k])
-        cc.elevator_deflection_norm = float(u_e[k])
-        cc.rudder_deflection_norm = float(u_r[k])
+    # Move to desired inertial attitude quickly then hold + clean up β
+    trim_hist = {
+        "u_a": np.zeros(total_steps),
+        "u_e": np.zeros(total_steps),
+        "u_r": np.zeros(total_steps),
+    }
 
-        sensors = sim.step(cc)
+    for k in range(total_steps):
+        # Measurements
+        phi = sim.fdm["attitude/phi-rad"]
+        theta = sim.fdm["attitude/theta-rad"]
+        p = sim.fdm["velocities/p-rad_sec"]
+        q = sim.fdm["velocities/q-rad_sec"]
+        r = sim.fdm["velocities/r-rad_sec"]
+        beta = compute_beta_rad(sim.fdm)
 
-        # Log states
+        # Errors (inertial for φ, θ; body for β)
+        e_phi = phi_ref_rad - phi
+        e_theta = theta_ref_rad - theta
+        e_beta = -beta
+
+        # Simple rate-damped proportional control to bring to ref
+        u_a_cmd = gains["kp_phi"] * e_phi - gains["kd_p"] * p
+        u_e_cmd = gains["kp_theta"] * e_theta - gains["kd_q"] * q
+
+        # Rudder: keep β ≈ 0 with a little I
+        beta_int += e_beta * dt
+        u_r_cmd = gains["kp_beta"] * e_beta + gains["ki_beta"] * beta_int
+
+        # Apply
+        cc.aileron_deflection_norm = float(np.clip(u_a_cmd, -1.0, 1.0))
+        cc.elevator_deflection_norm = float(np.clip(u_e_cmd, -1.0, 1.0))
+        cc.rudder_deflection_norm = float(np.clip(u_r_cmd, -1.0, 1.0))
+        sim.step(cc)
+
+        trim_hist["u_a"][k] = cc.aileron_deflection_norm
+        trim_hist["u_e"][k] = cc.elevator_deflection_norm
+        trim_hist["u_r"][k] = cc.rudder_deflection_norm
+
+    # Take average of the last 1 s as the "trim biases"
+    avg_len = max(2, int(round(1.0 / dt)))
+    u_a_bias = float(np.mean(trim_hist["u_a"][-avg_len:]))
+    u_e_bias = float(np.mean(trim_hist["u_e"][-avg_len:]))
+    u_r_bias = float(np.mean(trim_hist["u_r"][-avg_len:]))
+
+    # Final snapshot
+    final_state = dict(
+        phi=float(sim.fdm["attitude/phi-rad"]),
+        theta=float(sim.fdm["attitude/theta-rad"]),
+        p=float(sim.fdm["velocities/p-rad_sec"]),
+        q=float(sim.fdm["velocities/q-rad_sec"]),
+        r=float(sim.fdm["velocities/r-rad_sec"]),
+        beta=float(compute_beta_rad(sim.fdm)),
+    )
+
+    biases = dict(u_a_bias=u_a_bias, u_e_bias=u_e_bias, u_r_bias=u_r_bias)
+    return biases, final_state
+
+
+# -------------------- 2) PERTURBATION --------------------
+
+def build_sequential_prbs(
+    dt: float,
+    settle_after_trim_s: float,
+    seg_s: float,
+    prbs_bit_s: float,
+    amp_a: float,
+    amp_e: float,
+    amp_r: float,
+    seed: int = 1,
+):
+    """
+    Build 3 sequential PRBS segments separated by an initial settle period.
+    Returns time array and control arrays u_a, u_e, u_r (all length N).
+    """
+    n_settle = int(round(settle_after_trim_s / dt))
+    n_seg = int(round(seg_s / dt))
+    bit_len = max(1, int(round(prbs_bit_s / dt)))
+
+    # Total length: settle + 3 segments
+    n_total = n_settle + 3 * n_seg
+    t = np.arange(n_total) * dt
+
+    u_a = np.zeros(n_total)
+    u_e = np.zeros(n_total)
+    u_r = np.zeros(n_total)
+
+    # Aileron PRBS
+    if n_seg > 0:
+        u_a[n_settle:n_settle+n_seg] = prbs_sequence(n_seg, bit_len, amp_a, seed+1)
+
+    # Elevator PRBS
+    idx_e = n_settle + n_seg
+    if n_seg > 0:
+        u_e[idx_e:idx_e+n_seg] = prbs_sequence(n_seg, bit_len, amp_e, seed+2)
+
+    # Rudder PRBS
+    idx_r = n_settle + 2 * n_seg
+    if n_seg > 0:
+        u_r[idx_r:idx_r+n_seg] = prbs_sequence(n_seg, bit_len, amp_r, seed+3)
+
+    return t, u_a, u_e, u_r
+
+
+# -------------------- 3) RUN + LOG --------------------
+
+def run_perturbation_and_log(
+    sim: JSBSim_Sandbox,
+    biases: dict,
+    t: np.ndarray,
+    u_a: np.ndarray,
+    u_e: np.ndarray,
+    u_r: np.ndarray,
+    out_csv: str,
+):
+    """
+    Runs the sim with (bias + perturbation) commands and logs CSV:
+    t,phi,theta,p,q,r,beta,u_a,u_e,u_r,vt,h
+    """
+    os.makedirs(os.path.dirname(out_csv) or ".", exist_ok=True)
+
+    N = len(t)
+    dt = float(sim.sim_params.dt_s)
+
+    # Storage
+    phi = np.zeros(N)
+    theta = np.zeros(N)
+    p = np.zeros(N)
+    q = np.zeros(N)
+    r = np.zeros(N)
+    beta = np.zeros(N)
+    vt = np.zeros(N)
+    h = np.zeros(N)
+
+    # Command container
+    cc = ControlCommands(
+        aileron_deflection_norm=0.0,
+        elevator_deflection_norm=0.0,
+        rudder_deflection_norm=0.0,
+        spoiler_deflection=0.0,
+    )
+
+    for k in range(N):
+        # Apply biases + perturbations, clipped to [-1, 1]
+        cc.aileron_deflection_norm = float(np.clip(biases["u_a_bias"] + u_a[k], -1.0, 1.0))
+        cc.elevator_deflection_norm = float(np.clip(biases["u_e_bias"] + u_e[k], -1.0, 1.0))
+        cc.rudder_deflection_norm = float(np.clip(biases["u_r_bias"] + u_r[k], -1.0, 1.0))
+
+        sim.step(cc)
+
+        # Log
         phi[k] = sim.fdm["attitude/phi-rad"]
         theta[k] = sim.fdm["attitude/theta-rad"]
         p[k] = sim.fdm["velocities/p-rad_sec"]
@@ -222,117 +240,101 @@ def run_sysid(
         vt[k] = units.knots_to_mps(sim.fdm["velocities/vtrue-kts"])
         h[k] = units.feet_to_meters(sim.fdm["position/h-sl-ft"])
 
-    # Save raw log (CSV)
-    csv_path = os.path.join(out_dir, "sysid_log.csv")
+        # Keep real-time-ish spacing if your dt differs from array spacing
+        # (not needed here; sim.dt is fixed)
+
+    # Save CSV
     header = "t,phi,theta,p,q,r,beta,u_a,u_e,u_r,vt,h"
-    data = np.column_stack([t, phi, theta, p, q, r, beta, u_a, u_e, u_r, vt, h])
-    np.savetxt(csv_path, data, delimiter=",", header=header, comments="")
-    print(f"[sysid] wrote {csv_path}")
-
-    # --- Fit per segment to reduce cross-coupling ---
-    def seg_slice(start_idx, length):
-        end = min(n_total, start_idx + length)
-        return slice(start_idx, end)
-
-    sl_settle = seg_slice(0, n_settle)
-    sl_A = seg_slice(n_settle, n_seg)
-    sl_E = seg_slice(n_settle + n_seg, n_seg)
-    sl_R = seg_slice(n_settle + 2 * n_seg, n_seg)
-
-    # Roll-rate model (aileron segment)
-    a_p, b_p, cdp, a_d_p, b_d_p = fit_first_order_arx(p[sl_A], u_a[sl_A], dt)
-    roll_summary = summarize_rate_channel("roll", a_p, b_p)
-
-    # Pitch-rate model (elevator segment)
-    a_q, b_q, cdq, a_d_q, b_d_q = fit_first_order_arx(q[sl_E], u_e[sl_E], dt)
-    pitch_summary = summarize_rate_channel("pitch", a_q, b_q)
-
-    # Yaw-rate model (rudder segment)
-    a_r, b_r, cdr, a_d_r, b_d_r = fit_first_order_arx(r[sl_R], u_r[sl_R], dt)
-    yaw_summary = summarize_rate_channel("yaw", a_r, b_r)
-
-    # (Optional) cross-coupling quick looks (e.g., r vs aileron on A-segment)
-    # r[k+1] = a_d*r[k] + b_da*u_a[k] + c_d  -> gives an estimate of N_{delta_a} effect
-    _, b_r_from_da, _, _, _ = fit_first_order_arx(r[sl_A], u_a[sl_A], dt)
-    _, b_p_from_dr, _, _, _ = fit_first_order_arx(p[sl_R], u_r[sl_R], dt)
-
-    # JSON report
-    report = {
-        "meta": {
-            "aircraft": aircraft,
-            "dt_s": dt,
-            "settle_s": settle_s,
-            "segment_s": seg_s,
-            "prbs_bit_s": prbs_bit_s,
-            "amps": {"aileron": aileron_amp, "elevator": elevator_amp, "rudder": rudder_amp},
-            "samples": int(n_total),
-        },
-        "roll_rate": roll_summary | {"a_d": a_d_p, "b_d": b_d_p, "bias_d": cdp},
-        "pitch_rate": pitch_summary | {"a_d": a_d_q, "b_d": b_d_q, "bias_d": cdq},
-        "yaw_rate": yaw_summary | {"a_d": a_d_r, "b_d": b_d_r, "bias_d": cdr},
-        "cross_coupling_discrete": {
-            "r_from_aileron_b_d": b_r_from_da,
-            "p_from_rudder_b_d": b_p_from_dr,
-        },
-        "notes": [
-            "k_rate_DC = b_c / (-a_c) is DC gain from control to rate.",
-            "k_rate_to_integrator is the cascaded gain for angle plant G(s) ≈ [b_c] / [s (s - a_c)].",
-            "Use tau_s and k_rate_to_integrator to seed PI+D angle controllers.",
-        ],
-    }
-
-    json_path = os.path.join(out_dir, "sysid_report.json")
-    with open(json_path, "w") as f:
-        json.dump(report, f, indent=2)
-    print(f"[sysid] wrote {json_path}")
-
-    # Friendly console summary
-    def fmt(s): return "None" if s is None else f"{s:.4g}"
-    print("\n==== Identified rate models (continuous-time) ====")
-    print(f"Roll:  p_dot = {fmt(a_p)} * p + {fmt(b_p)} * delta_a   "
-          f"(tau_p={fmt(roll_summary['tau_s'])}, k_rate_to_int={fmt(roll_summary['k_rate_to_integrator'])})")
-    print(f"Pitch: q_dot = {fmt(a_q)} * q + {fmt(b_q)} * delta_e   "
-          f"(tau_q={fmt(pitch_summary['tau_s'])}, k_rate_to_int={fmt(pitch_summary['k_rate_to_integrator'])})")
-    print(f"Yaw:   r_dot = {fmt(a_r)} * r + {fmt(b_r)} * delta_r   "
-          f"(tau_r={fmt(yaw_summary['tau_s'])})")
-    print("Cross-coupling (discrete quick-look): "
-          f"r<-aileron b_d={fmt(b_r_from_da)}, p<-rudder b_d={fmt(b_p_from_dr)}")
-
-    return report, csv_path, json_path
+    data = np.column_stack([t, phi, theta, p, q, r, beta, biases["u_a_bias"] + u_a, biases["u_e_bias"] + u_e, biases["u_r_bias"] + u_r, vt, h])
+    np.savetxt(out_csv, data, delimiter=",", header=header, comments="")
+    print(f"[perturber] wrote {out_csv}")
 
 
 # -------------------- CLI --------------------
 
 def main():
-    p = argparse.ArgumentParser(description="Inner-loop system ID (rate models) for JSBSim glider.")
-    p.add_argument("--aircraft", type=str, default="ask21", help="Aircraft model (e.g., 'glider')")
-    p.add_argument("--jsbsim_root", type=str, default="jsbsim_sandbox/", help="JSBSim root (optional)")
-    p.add_argument("--dt", type=float, default=0.01, help="Simulation step [s]")
-    p.add_argument("--settle_s", type=float, default=3.0, help="Initial settle duration [s]")
-    p.add_argument("--segment_s", type=float, default=20.0, help="Duration per excitation segment [s]")
-    p.add_argument("--duration_s", type=float, default=None, help="Override total duration [s]")
-    p.add_argument("--prbs_bit_s", type=float, default=0.5, help="PRBS bit length [s]")
-    p.add_argument("--aileron_amp", type=float, default=0.05, help="Aileron normalized amplitude")
-    p.add_argument("--elevator_amp", type=float, default=0.05, help="Elevator normalized amplitude")
-    p.add_argument("--rudder_amp", type=float, default=0.05, help="Rudder normalized amplitude")
-    p.add_argument("--seed", type=int, default=1, help="PRBS RNG seed")
-    p.add_argument("--out_dir", type=str, default="output/sysid", help="Output directory")
-    args = p.parse_args()
+    ap = argparse.ArgumentParser(description="Trim to (phi,theta) & β≈0, then perturb and log for system ID.")
+    ap.add_argument("--aircraft", default="ask21", help="JSBSim model name (e.g., 'glider')")
+    ap.add_argument("--jsbsim_root", default="jsbsim_sandbox/", help="JSBSim root dir (optional)")
+    ap.add_argument("--dt", type=float, default=0.01, help="Simulation dt [s]")
 
-    run_sysid(
-        aircraft=args.aircraft,
-        jsbsim_root=args.jsbsim_root,
-        dt=args.dt,
-        settle_s=args.settle_s,
-        seg_s=args.segment_s,
-        aileron_amp=args.aileron_amp,
-        elevator_amp=args.elevator_amp,
-        rudder_amp=args.rudder_amp,
-        prbs_bit_s=args.prbs_bit_s,
-        duration_s=args.duration_s,
-        seed=args.seed,
-        out_dir=args.out_dir,
+    # Initial condition (position/airspeed/heading)
+    ap.add_argument("--h0_m", type=float, default=2000.0)
+    ap.add_argument("--vt0_mps", type=float, default=40.0)
+    ap.add_argument("--lat0_deg", type=float, default=37.4275)
+    ap.add_argument("--lon0_deg", type=float, default=-122.1697)
+    ap.add_argument("--psi0_rad", type=float, default=0.0)
+
+    # Target operating point (inertial)
+    ap.add_argument("--phi_ref_deg", type=float, default=0.0, help="Target roll [deg]")
+    ap.add_argument("--theta_ref_deg", type=float, default=0.0, help="Target pitch [deg]")
+
+    # Trim/hold timing
+    ap.add_argument("--trim_settle_s", type=float, default=10.0, help="Pre-hold settle seconds")
+    ap.add_argument("--trim_hold_s", type=float, default=5.0, help="Hold seconds for averaging biases")
+
+    # Perturbation design
+    ap.add_argument("--post_trim_settle_s", type=float, default=2.0, help="Settle after trim before PRBS")
+    ap.add_argument("--seg_s", type=float, default=20.0, help="Per-axis PRBS segment length [s]")
+    ap.add_argument("--prbs_bit_s", type=float, default=0.5, help="PRBS bit length [s]")
+    ap.add_argument("--amp_a", type=float, default=0.05, help="Aileron amplitude (normalized)")
+    ap.add_argument("--amp_e", type=float, default=0.05, help="Elevator amplitude (normalized)")
+    ap.add_argument("--amp_r", type=float, default=0.05, help="Rudder amplitude (normalized)")
+    ap.add_argument("--seed", type=int, default=1, help="PRBS seed")
+
+    ap.add_argument("--out_csv", default="output/sysid/sysid_log.csv", help="Output CSV path")
+
+    args = ap.parse_args()
+
+    # Build sandbox
+    initial_cond = JSBSimVehicleInitialCond(
+        h0_m=args.h0_m,
+        vt0_mps=args.vt0_mps,
+        lat0_deg=args.lat0_deg,
+        lon0_deg=args.lon0_deg,
+        psi0_rad=args.psi0_rad,
+        phi0_rad=0.0,
+        theta0_rad=0.0,
     )
+    sim_params = JSBSimSimParams(dt_s=args.dt)
+    vehicle_config = JSBSimVehicleConfig(
+        model_name=args.aircraft,
+        root_dir=args.jsbsim_root,
+        aileron_multiplier=1.0,
+        elevator_multiplier=1.0,
+        rudder_multiplier=1.0,
+        spoiler_max_deflection=1.0,
+    )
+    sim = JSBSim_Sandbox(initial_cond, sim_params, vehicle_config)
+
+    # 1) Trim
+    phi_ref = math.radians(args.phi_ref_deg)
+    theta_ref = math.radians(args.theta_ref_deg)
+    biases, snap = trim_for_operating_point(
+        sim,
+        phi_ref_rad=phi_ref,
+        theta_ref_rad=theta_ref,
+        settle_s=args.trim_settle_s,
+        hold_s=args.trim_hold_s,
+        dt=args.dt,
+    )
+    print(f"[trim] biases: {biases}")
+    print(f"[trim] final:  phi={snap['phi']:.3f}, theta={snap['theta']:.3f}, beta={snap['beta']:.3f}, p={snap['p']:.3f}, q={snap['q']:.3f}, r={snap['r']:.3f}")
+
+    # 2) Build perturbations (sequential PRBS per axis)
+    t, u_a, u_e, u_r = build_sequential_prbs(
+        dt=args.dt,
+        settle_after_trim_s=args.post_trim_settle_s,
+        seg_s=args.seg_s,
+        prbs_bit_s=args.prbs_bit_s,
+        amp_a=args.amp_a,
+        amp_e=args.amp_e,
+        amp_r=args.amp_r,
+        seed=args.seed,
+    )
+
+    # 3) Run + log
+    run_perturbation_and_log(sim, biases, t, u_a, u_e, u_r, out_csv=args.out_csv)
 
 
 if __name__ == "__main__":
