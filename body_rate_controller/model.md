@@ -118,9 +118,9 @@ $$
 =
 \underbrace{
 \begin{bmatrix}
-L_p & L_q & L_r \\
-M_p & M_q & M_r \\
-N_p & N_q & N_r
+L_p & 0 & 0 \\
+0 & M_q & M_r \\
+0 & N_q & N_r
 \end{bmatrix}
 }_{A}
 \begin{bmatrix}
@@ -131,9 +131,9 @@ N_p & N_q & N_r
 +
 \underbrace{
 \begin{bmatrix}
-L_{\delta_a} & L_{\delta_e} & L_{\delta_r} \\
-M_{\delta_a} & M_{\delta_e} & M_{\delta_r} \\
-N_{\delta_a} & N_{\delta_e} & N_{\delta_r}
+L_{\delta_a} & 0 & 0 \\
+0 & M_{\delta_e} & M_{\delta_r} \\
+0 & N_{\delta_e} & N_{\delta_r}
 \end{bmatrix}
 }_{B}
 \begin{bmatrix}
@@ -143,3 +143,23 @@ N_{\delta_a} & N_{\delta_e} & N_{\delta_r}
 \end{bmatrix}
 
 $$
+
+Where:
+- $L_p$, $M_q$, $M_r$, $N_q$, $N_r$ are the stability derivatives to be identified.
+- $L_{\delta_a}$, $M_{\delta_e}$, $M_{\delta_r}$, $N_{\delta_e}$, $N_{\delta_r}$ are the control effectiveness derivatives to be identified.
+- $\Delta p$, $\Delta q$, $\Delta r$ are the deviations of body angular rates from trim.
+- $\Delta \delta_a$, $\Delta \delta_e$, $\Delta \delta_r$ are the deviations of control surface deflections from trim.
+
+Note the 0'ed out terms in the A and B matrices, which stem from the assumptions made earlier (specifically, lack of AoA and sideslip states accounted for in the model), and the core equations of motion that govern the body angular rates (ex: the pitch rate $\dot{q}$ is not directly affected by aileron deflection, hence the 0 in that position in the B matrix).
+
+The optimization objective during system identification can be formally defined as:
+$$
+\min_{L, M, N} \sum_{i=1}^{j} \left( \Delta \dot{\omega}_i - A \Delta \omega_i - B \Delta \delta_i \right)^2
+$$
+
+Where:
+- $j$ is the total number of data samples collected during the system identification experiment.
+- $\Delta \dot{\omega}_i$ is the measured angular acceleration at sample $i$.
+- $\Delta \omega_i$ is the measured angular rate deviation at sample $i$.
+- $\Delta \delta_i$ is the measured control surface deviation at sample $i$.
+
