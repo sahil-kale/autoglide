@@ -61,31 +61,19 @@ Where
 $C_m = C_{m_0}(\alpha,\beta,M) + C_{m_{\delta_{elevator}}}(\alpha, \beta, M, \delta_{elevator}) + \frac{\bar{c}}{2V} (C_{m_q}(\alpha, \beta, M) q + C_{m_{\alpha}}(\alpha, \beta, M) \dot{\alpha})$
 
 - $C_{m_0}$ is the baseline (trim) pitch-moment coefficient as a function of state; near a properly trimmed condition this is $\approx 0$.
-- $C_{m_{\delta_{elevator}}}$ is the elevator control effectiveness. In a linearized model it appears as $C_{m_{\delta_{elevator}}}^{linear}\,\delta_{elevator}$ and is the **primary** control input for pitch.
+- $C_{m_{\delta_{elevator}}}$ is the elevator control effectiveness. In a linearized model it appears as $C_{m_{\delta_{elevator}}}(\alpha, \beta, h)^{linear}\,\delta_{elevator}$ and is the **primary** control input for pitch.
 - $\frac{\bar{c}}{2V} (C_{m_q}(\alpha, \beta, M) q + C_{m_{\alpha}}(\alpha, \beta, M) \dot{\alpha})$ is the pitch damping term, which captures the effect of pitch rate ($q$) and angle of attack rate ($\dot{\alpha}$) on the pitch moment. This term is crucial for stability analysis and control design, as it represents the natural damping effect that opposes pitch motion.
 - $\bar{c}$ is the mean aerodynamic chord (m).
 
 #### Yaw Moment ($n$):
 Yaw moment about the wind-frame **z-axis** is defined as:
 
-\[
-n_{\text{wind}} \;=\; \bar{q}\, S\, b\; C_n(\alpha,\beta,M,\delta_{rudder},\delta_{aileron})
-\]
+$C_n = C_{n_0}(\alpha, \beta, M, T_c) + C_{n_{\delta_r}}(\alpha, \beta, M, \delta_r) + C_{n_{\delta_a}}(\alpha, \beta, M, \delta_a) + \frac{b}{2V_T} (C_{n_p}(\alpha, M)P + C_{n_r}(\alpha, M)R)$
 
-Where
-\[
-C_n \;=\; C_{n_0}(\alpha,\beta,M)
-\;+\; C_{n_{\delta_{rudder}}}(\alpha,\beta,M)\,\delta_{rudder}
-\;+\; C_{n_{\delta_{aileron}}}(\alpha,\beta,M)\,\delta_{aileron}
-\;+\; \frac{b}{2V}\, C_{n_r}(\alpha,\beta,M)\, r.
-\]
-
-- \(C_{n_0}\) is the baseline yaw-moment coefficient (includes effects like vertical tail/fin and static asymmetries); \(\approx 0\) at coordinated trim.
-- \(C_{n_{\delta_{rudder}}}\) is the rudder control effectiveness. In a linearized model it appears as \(C_{n_{\delta_{rudder}}}\,\delta_{rudder}\) and is the **primary** yaw control channel (used for \(\beta\to 0\)).
-- \(C_{n_{\delta_{aileron}}}\) captures **adverse yaw** (aileron deflection producing yaw via differential drag/lift); often non-negligible and a key cross-coupling in roll–yaw dynamics.
-- \(\frac{b}{2V}\, C_{n_r}\, r\) is the **yaw-rate damping** term (stabilizing for \(C_{n_r}<0\)), opposing yaw motion.
-
-
+- $C_{n_0}$ is the baseline (trim) yaw-moment coefficient as a function of state and throttle command; near a properly trimmed condition this is $\approx 0$.
+- $C_{n_{\delta_r}}$ is the rudder control effectiveness. In a linearized model it appears as $C_{n_{\delta_r}}(\alpha, \beta, M)^{linear}\,\delta_{rudder}$ and is the **primary** control input for yaw.
+- $C_{n_{\delta_a}}$ is the secondary yaw moment due to aileron deflection. In a linearized model it appears as $C_{n_{\delta_a}}(\alpha, \beta, M)^{linear}\,\delta_{aileron}$ and captures the yaw moment induced by aileron deflection (primarily through roll-yaw coupling).
+- $\frac{b}{2V} (C_{n_p}(\alpha, M) p + C_{n_r}(\alpha, M) r)$ is the yaw damping term, which captures the effect of yaw rate ($r$) on the yaw moment. This term is crucial for stability analysis and control design, as it represents the natural damping effect that opposes yaw motion.
 
 ## Body Frame System Identification
 In order to design and tune the body-rate controller, a system identification procedure is required to derive a small-signal linear model of the aircraft dynamics in the body frame. 
