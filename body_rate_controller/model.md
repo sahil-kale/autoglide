@@ -25,11 +25,11 @@ $\boldsymbol{\omega} = [\,p,\; q,\; r\,]$
 ## Body Frame Equations of Motion
 The following equations, taken from [Aircraft Dynamics and Automatic Control by Stevens, Lewis and Johnson (3rd Edition)](https://www.amazon.com/Aircraft-Control-Simulation-Dynamics-Autonomous/dp/1118870980), describe the rotational dynamics of an aircraft within the body frame (equations 1.7-8):
 
-$\sum \Tau_{body-x} =  J_x \dot{p} = (J_y - J_z)(q r) + l$
+$\sum \tau_{body-x} =  J_x \dot{p} = (J_y - J_z)(q r) + l$
 
-$\sum \Tau_{body-y} =  J_y \dot{q} = (J_z - J_x)(p r) + m$
+$\sum \tau_{body-y} =  J_y \dot{q} = (J_z - J_x)(p r) + m$
 
-$\sum \Tau_{body-z} =  J_z \dot{r} = (J_x - J_y)(p q) + n$
+$\sum \tau_{body-z} =  J_z \dot{r} = (J_x - J_y)(p q) + n$
 
 
 Where:
@@ -84,13 +84,62 @@ In order to tune the body-rate controller and verify stability, a system identif
 - It eliminates the need for deep expertise in flight dynamics and control theory to derive the mathematical models, making it easier for new users to get started with the control stack.
 
 ### System Identification Objective
-Here, we formally define the objective of the system identification procedure for the body-rate controller. Generically, within the body frame, the dynamics of the aircraft within the body frame can be described as:
-$$
-\dot{x} = f(x, u)
-$$
+Here, we formally define the objective of the system identification procedure for the body-rate controller. Generically, within the body frame, the dynamics of the aircraft within the body frame can be described as: $\dot{x} = f(x, u)$
 
 Where:
 - $x$ is the state vector, which includes body angular rates ($\omega = [\,p,\; q,\; r\,]$), and other relevant state (ex, dynamic pressure, which affects control surface effectiveness)
 - $u$ is the control input vector, which includes control surface deflections ($\delta_{aileron}$, $\delta_{elevator}$, $\delta_{rudder}$)
 - $f$ is a nonlinear function that describes the aircraft dynamics within the body frame.
 
+### Linearization About Trim Condition
+For the purposes of controller design and stability analysis, it is in our interest to derive a linear approximation of the aircraft dynamics about a trim condition ($x_{trim}$, $u_{trim}$). This linear approximation can be expressed as (in the familiar state-space form): $\dot{x} = A \Delta x + B \Delta u$, around a trim point $f(x_{trim}, u_{trim}) = 0$
+
+Where:
+- $A$ is the state transition matrix, which describes how the state evolves over time in the absence of control inputs.
+- $B$ is the control input matrix, which describes how the control inputs affect the state.
+- $\Delta x = x - x_{trim}$ is the deviation of the state from the trim condition.
+- $\Delta u = u - u_{trim}$ is the deviation of the control inputs from the trim condition.
+
+### Model Simplifications
+From the above equations, we can make several simplifications to the model in order to focus on the body angular rates ($\omega = [\,p,\; q,\; r\,]$) as the primary states of interest for the body-rate controller.
+- We can conclude that the velocity state has a non-trivial impact on control surface effectiveness, as it's directly related to dynamic pressure ($\bar{q} = \frac{\rho V^2}{2}$). This implies that the identified model will be valid only within a certain range of airspeeds (or dynamic pressures). As a result, we may need to perform system identification at multiple trim conditions to cover the full flight envelope, and schedule a controller gain based on airspeed or dynamic pressure. In effect, the system is linear parameter varying (LPV), but we can treat it as a set of LTI systems at various operating points and remove the dependency on velocity from the state vector.
+- The body-rate controller within this autopilot is intended to operate within a coordinated flight regime, where sideslip ($\beta$) is maintained at or close to zero. As a result, we can remove sideslip from the state vector, and treat it as a disturbance that is rejected by the outer-loop controller.
+- In steady, coordinated flight, the aircraft’s angle of attack ($\alpha$) is largely determined by its pitch attitude ($\theta$) and flight path angle, rather than being an independent state variable. In other words, $\alpha$ varies slowly and predictably with $\theta$ for small perturbations around trim. Because the body-rate controller operates at a much faster timescale than changes in $\alpha$, and because $\alpha$’s influence on aerodynamic derivatives is already captured through the dependence on airspeed (via dynamic pressure), we can effectively absorb its variation into the same gain-scheduling framework used for velocity. This allows us to omit $\alpha$ from the state vector without losing meaningful fidelity for inner-loop control design.
+
+### Model-to-fit
+With the above assumptions and simplifications, we can define the model to fit as follows:
+$$
+
+\begin{bmatrix}
+\Delta \dot{p} \\
+\Delta \dot{q} \\
+\Delta \dot{r}
+\end{bmatrix}
+=
+\underbrace{
+\begin{bmatrix}
+L_p & L_q & L_r \\
+M_p & M_q & M_r \\
+N_p & N_q & N_r
+\end{bmatrix}
+}_{A}
+\begin{bmatrix}
+\Delta p \\
+\Delta q \\
+\Delta r
+\end{bmatrix}
++
+\underbrace{
+\begin{bmatrix}
+L_{\delta_a} & L_{\delta_e} & L_{\delta_r} \\
+M_{\delta_a} & M_{\delta_e} & M_{\delta_r} \\
+N_{\delta_a} & N_{\delta_e} & N_{\delta_r}
+\end{bmatrix}
+}_{B}
+\begin{bmatrix}
+\Delta \delta_a \\
+\Delta \delta_e \\
+\Delta \delta_r
+\end{bmatrix}
+
+$$
