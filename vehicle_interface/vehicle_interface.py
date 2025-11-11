@@ -29,3 +29,17 @@ class SimTruthState:
     p_radps: float = 0.0  # roll rate, +ve = right wing down / roll right (p > 0)
     q_radps: float = 0.0  # pitch rate, +ve = pitch up (q > 0)
     r_radps: float = 0.0  # yaw rate, +ve = nose left / yaw left (r > 0)
+
+    def __str__(self):
+        return (
+            f"Time: {self.time_s:.2f} s, \n"
+            f"TAS: {self.airspeed_mps:.2f} m/s, \n"
+            f"Alt: {self.altitude_m:.2f} m, \n"
+            f"Lat: {self.latitude_deg:.6f} deg, \n"
+            f"Lon: {self.longitude_deg:.6f} deg, \n"
+            f"Attitude (quat): ({self.attitude.w:.4f}, {self.attitude.x:.4f}, {self.attitude.y:.4f}, {self.attitude.z:.4f}), \n"
+            f"Sideslip: {np.degrees(self.sideslip_rad):.2f} deg, \n"
+            f"p: {np.degrees(self.p_radps):.2f} deg/s, \n"
+            f"q: {np.degrees(self.q_radps):.2f} deg/s, \n"
+            f"r: {np.degrees(self.r_radps):.2f} deg/s\n"
+        )

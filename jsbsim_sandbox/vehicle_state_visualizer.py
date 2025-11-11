@@ -90,7 +90,7 @@ def animate_sim(
         [object], Tuple[float, float, float]
     ] = lambda s: s.attitude.get_euler(),
     yaw_left_positive: bool = True,
-    flip_body_z_for_display: bool = True,
+    flip_body_z_for_display: bool = False,
     interval_ms: int = 30,
     frame_step: int = 2,  # decimate frames for speed (2 = every other sample)
     wire_scale: float = 5.0,

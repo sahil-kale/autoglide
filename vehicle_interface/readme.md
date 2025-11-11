@@ -6,4 +6,4 @@ The vehicle interface module abstracts the communication between the simulation 
 - "Peek" at ground truth data from the simulation environment (ex: exact position, exact attitude, wind vector etc.) for the purposes of logging and debugging
 
 ## Convention
-See [here](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/aircraft-rotations/) for a description of the aerospace convention used in this module.
+See [here](https://jsbsim-team.github.io/jsbsim-reference-manual/user/concepts/frames-of-reference/#north-oriented-tangent-frames) for a description of the aerospace convention used in this module.
