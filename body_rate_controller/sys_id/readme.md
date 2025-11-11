@@ -176,5 +176,11 @@ Where:
 - $e[k]$ is the error signal at time step $k$ (difference between desired and actual attitude)
 - $K_p$, $K_i$, $K_d$ are the proportional, integral, and derivative gains, respectively.
 
-
 Once the aircraft is stabilized at the desired attitude, we log the steady-state control surface deflections ($\delta_{aileron, trim}$, $\delta_{elevator, trim}$, $\delta_{rudder, trim}$).
+
+### Perturbation Input
+Once the aircraft is in a trimmed condition, we apply a series of perturbation inputs to excite the body angular rate dynamics. The perturbation input follows the following general form:
+- Step Input: A step change in control surface deflection, exercising positive and negative deflection.
+- Random Binary Sequence (RBS): A pseudo-random sequence of control surface deflections, switching between positive and negative deflections at a specified frequency.
+
+Once the above steps are completed, the collected data is used to solve the optimization problem defined earlier, yielding the identified state-space matrices A and B for the body-rate dynamics.
