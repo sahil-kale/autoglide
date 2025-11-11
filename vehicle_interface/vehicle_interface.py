@@ -17,6 +17,7 @@ class ControlCommands:
 
 @dataclass
 class SimTruthState:
+    time_s: float = 0.0  # simulation time
     airspeed_mps: float = 0.0  # true airspeed
     altitude_m: float = 0.0  # altitude above sea level
     latitude_deg: float = 0.0  # degrees
@@ -28,4 +29,3 @@ class SimTruthState:
     p_radps: float = 0.0  # roll rate, +ve = right wing down / roll right (p > 0)
     q_radps: float = 0.0  # pitch rate, +ve = pitch up (q > 0)
     r_radps: float = 0.0  # yaw rate, +ve = nose left / yaw left (r > 0)
-

@@ -50,6 +50,7 @@ class GliderAttitudeTrimController:
         self.roll_controller = PIDController(roll_gains, dt)
         self.pitch_controller = PIDController(pitch_gains, dt)
         self.sideslip_controller = PIDController(yaw_gains, dt)
+        self.sim_truth_state_history = []
 
     def step_trim_to_attitude(
         self,
@@ -68,6 +69,8 @@ class GliderAttitudeTrimController:
         rudder_cmd = self.sideslip_controller.step(
             target_sideslip_rad, current_sideslip_rad
         )
+
+        self.sim_truth_state_history.append(truth_data)
 
         return ControlCommands(
             aileron_deflection_norm=aileron_cmd,
@@ -117,7 +120,7 @@ if __name__ == "__main__":
         truth_data = sim.step(control_commands)
         control_commands = trim_controller.step_trim_to_attitude(
             target_roll_rad=np.deg2rad(0),
-            target_pitch_rad=np.deg2rad(10),
+            target_pitch_rad=np.deg2rad(-10),
             target_sideslip_rad=np.deg2rad(0),
             truth_data=truth_data,
         )
@@ -126,3 +129,7 @@ if __name__ == "__main__":
         print(
             f"Step {_step}: Roll: {sim.fdm.get_property_value('attitude/phi-rad'):.2f}, Pitch: {sim.fdm.get_property_value('attitude/theta-rad'):.2f}, Sideslip: {sim.fdm.get_property_value('aero/beta-rad'):.2f}, Aileron: {control_commands.aileron_deflection_norm:.2f}, Elevator: {control_commands.elevator_deflection_norm:.2f}, Rudder: {control_commands.rudder_deflection_norm:.2f}"
         )
+
+    from jsbsim_sandbox.vehicle_state_visualizer import animate_sim
+
+    animate_sim(trim_controller.sim_truth_state_history, interval_ms=0.005)
