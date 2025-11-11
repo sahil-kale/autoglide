@@ -16,7 +16,7 @@ class ControlCommands:
 
 
 @dataclass
-class MockSensors:
+class SimTruthState:
     airspeed_mps: float = 0.0  # true airspeed
     altitude_m: float = 0.0  # altitude above sea level
     latitude_deg: float = 0.0  # degrees
@@ -24,6 +24,7 @@ class MockSensors:
     attitude: Quaternion = field(
         default_factory=lambda: Quaternion(1, 0, 0, 0)
     )  # unit quaternion (w, x, y, z)
+    sideslip_rad: float = 0.0  # +ve = nose left / yaw left (beta > 0)
     p_radps: float = 0.0  # roll rate, +ve = right wing down / roll right (p > 0)
     q_radps: float = 0.0  # pitch rate, +ve = pitch up (q > 0)
     r_radps: float = 0.0  # yaw rate, +ve = nose left / yaw left (r > 0)
@@ -32,10 +33,10 @@ class MockSensors:
 class VehicleInterface:
     def __init__(self):
         self.control_commands = ControlCommands(0.0, 0.0, 0.0, 0.0)
-        self.sensors = MockSensors()
+        self.sensors = SimTruthState()
 
     def send_control_commands(self, commands: ControlCommands):
         self.control_commands = commands
 
-    def read_sensors(self) -> MockSensors:
+    def read_sensors(self) -> SimTruthState:
         return self.sensors

@@ -72,7 +72,7 @@ class JSBSim_Sandbox:
         norm_value = value * multiplier
         return np.clip(norm_value, -1.0, 1.0)
 
-    def step(self, control_commands: ControlCommands) -> MockSensors:
+    def step(self, control_commands: ControlCommands) -> SimTruthState:
         aileron_cmd_norm = self._normalize_and_clip_axis(
             control_commands.aileron_deflection_norm,
             self.vehicle_config.aileron_multiplier,
@@ -97,7 +97,7 @@ class JSBSim_Sandbox:
         theta = self.fdm.get_property_value("attitude/theta-rad")  # pitch
         psi = self.fdm.get_property_value("attitude/psi-rad")  # yaw
 
-        sensors = MockSensors(
+        sensors = SimTruthState(
             airspeed_mps=units.knots_to_mps(self.fdm["velocities/vtrue-kts"]),
             altitude_m=units.feet_to_meters(self.fdm["position/h-sl-ft"]),
             latitude_deg=self.fdm["position/lat-gc-deg"],
@@ -105,6 +105,7 @@ class JSBSim_Sandbox:
             attitude=Quaternion.from_euler(
                 roll=phi, pitch=theta, yaw=psi
             ).normalize(),  # TODO: Consider just being dependent on IMU measurements here instead. But we'll assume the attitude is already known since that problem is solved
+            sideslip_rad=self.fdm["aero/beta-rad"],
             p_radps=self.fdm["velocities/p-rad_sec"],
             q_radps=self.fdm["velocities/q-rad_sec"],
             r_radps=self.fdm["velocities/r-rad_sec"],

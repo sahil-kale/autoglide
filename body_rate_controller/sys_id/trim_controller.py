@@ -56,12 +56,12 @@ class GliderAttitudeTrimController:
         target_roll_rad: float,
         target_pitch_rad: float,
         target_sideslip_rad: float,
-        sensor_data: MockSensors,
+        truth_data: SimTruthState,
     ) -> ControlCommands:
-        # for now, get all values we need directly from the sim.
-        current_roll_rad = self.sim.fdm.get_property_value("attitude/phi-rad")
-        current_pitch_rad = self.sim.fdm.get_property_value("attitude/theta-rad")
-        current_sideslip_rad = self.sim.fdm.get_property_value("aero/beta-rad")
+        euler_angles = truth_data.attitude.get_euler()
+        current_roll_rad = euler_angles[0]
+        current_pitch_rad = euler_angles[1]
+        current_sideslip_rad = truth_data.sideslip_rad
 
         aileron_cmd = self.roll_controller.step(target_roll_rad, current_roll_rad)
         elevator_cmd = -self.pitch_controller.step(target_pitch_rad, current_pitch_rad)
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         theta0_rad=0.0,
         psi0_rad=0.0,
     )
-    sim_params = JSBSimSimParams(dt_s=0.01)
+    sim_params = JSBSimSimParams(dt_s=0.005)
     vehicle_config = JSBSimVehicleConfig(
         model_name="ask21",
         root_dir="jsbsim_sandbox/",
@@ -114,12 +114,12 @@ if __name__ == "__main__":
 
     control_commands = ControlCommands(0.0, 0.0, 0.0, 0.0)
     for _step in range(1000):
-        sensor_data = sim.step(control_commands)
+        truth_data = sim.step(control_commands)
         control_commands = trim_controller.step_trim_to_attitude(
             target_roll_rad=np.deg2rad(0),
             target_pitch_rad=np.deg2rad(10),
             target_sideslip_rad=np.deg2rad(0),
-            sensor_data=sensor_data,
+            truth_data=truth_data,
         )
 
         # print the above with only 2 decimal places

@@ -22,7 +22,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import units
 from vehicle_interface.vehicle_interface import (
     ControlCommands,
-    MockSensors,
+    SimTruthState,
     VehicleInterface,
 )  # noqa: E402
 

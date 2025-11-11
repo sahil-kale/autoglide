@@ -34,6 +34,26 @@ class Quaternion:
 
         return Quaternion(w, x, y, z)
 
+    def get_euler(self) -> np.ndarray:
+        # roll (x-axis rotation)
+        sinr_cosp = 2 * (self.w * self.x + self.y * self.z)
+        cosr_cosp = 1 - 2 * (self.x * self.x + self.y * self.y)
+        roll = np.arctan2(sinr_cosp, cosr_cosp)
+
+        # pitch (y-axis rotation)
+        sinp = 2 * (self.w * self.y - self.z * self.x)
+        if abs(sinp) >= 1:
+            pitch = np.sign(sinp) * (np.pi / 2)  # use 90 degrees if out of range
+        else:
+            pitch = np.arcsin(sinp)
+
+        # yaw (z-axis rotation)
+        siny_cosp = 2 * (self.w * self.z + self.x * self.y)
+        cosy_cosp = 1 - 2 * (self.y * self.y + self.z * self.z)
+        yaw = np.arctan2(siny_cosp, cosy_cosp)
+
+        return np.array([roll, pitch, yaw])
+
     def normalize(self) -> "Quaternion":
         norm = np.linalg.norm(self.as_np_array())
         if norm == 0:

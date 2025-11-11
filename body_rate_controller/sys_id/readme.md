@@ -167,7 +167,7 @@ Where:
 ### Trim Condition Setup
 In order to develop the small-signal linear model, we first need to establish a trim condition for the aircraft (mathematically, a point where $f(x_{trim}, u_{trim}) = 0$). 
 
-The method chosen for this procedure is to have a coarsly-tuned PID controller target a specific pitch angle $\theta_{trim}$, while maintaining a roll angle $\phi_{trim} = 0 \ rad/s$ and sideslip $\beta = 0$. The gains for this PID controller need not be perfect (or have any real basis in flight dyanmics theory, aka a "yolo-tune) - they just need to be good enough to maintain a steady attitude for the purposes of data collection.
+The method chosen for this procedure is to have a coarsely-tuned PID controller target a specific pitch angle $\theta_{trim}$, while maintaining a roll angle $\phi_{trim} = 0 \ rad/s$ and sideslip $\beta = 0$. The gains for this PID controller need not be perfect (or have any real basis in flight dynamics theory, aka a "yolo-tune) - they just need to be good enough to maintain a steady attitude for the purposes of data collection.
 
 The PID controller follows the following difference equation form
 $u[k] = K_p e[k] + K_i \sum_{n=0}^{k} e[n] + K_d (e[k] - e[k-1])$
