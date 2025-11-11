@@ -23,7 +23,6 @@ from utils import units
 from vehicle_interface.vehicle_interface import (
     ControlCommands,
     SimTruthState,
-    VehicleInterface,
 )  # noqa: E402
 
 # If you place this file standalone, replace the above with:

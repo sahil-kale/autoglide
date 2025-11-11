@@ -29,14 +29,3 @@ class SimTruthState:
     q_radps: float = 0.0  # pitch rate, +ve = pitch up (q > 0)
     r_radps: float = 0.0  # yaw rate, +ve = nose left / yaw left (r > 0)
 
-
-class VehicleInterface:
-    def __init__(self):
-        self.control_commands = ControlCommands(0.0, 0.0, 0.0, 0.0)
-        self.sensors = SimTruthState()
-
-    def send_control_commands(self, commands: ControlCommands):
-        self.control_commands = commands
-
-    def read_sensors(self) -> SimTruthState:
-        return self.sensors

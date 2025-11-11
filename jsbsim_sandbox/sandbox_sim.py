@@ -172,16 +172,20 @@ if __name__ == "__main__":
     )
 
     sim = JSBSim_Sandbox(initial_cond, sim_params, vehicle_config)
-    vehicle_interface = VehicleInterface()
-    vehicle_interface.control_commands.elevator_deflection_norm = 0.0
+    control_commands = ControlCommands(
+        aileron_deflection_norm=0.0,
+        elevator_deflection_norm=0.0,
+        rudder_deflection_norm=0.0,
+        spoiler_deflection=0.0,
+    )
+    control_commands.elevator_deflection_norm = 0.0
 
     num_steps = int(args.duration / args.dt)
     for step in range(num_steps):
-        commands = vehicle_interface.control_commands
-        sensors = sim.step(commands)
-        vehicle_interface.sensors = sensors
+        commands = control_commands
+        truth_data = sim.step(commands)
 
         if step % 100 == 0:
             print(
-                f"Time: {step * args.dt:.2f}s, Altitude: {sensors.altitude_m:.1f}m, Airspeed: {sensors.airspeed_mps:.1f}m/s"
+                f"Time: {step * args.dt:.2f}s, Altitude: {truth_data.altitude_m:.1f}m, Airspeed: {truth_data.airspeed_mps:.1f}m/s"
             )
