@@ -17,9 +17,9 @@ class JSBSimVehicleInitialCond:
     vt0_mps: float = 40.0
     lat0_deg: float = 37.4275
     lon0_deg: float = -122.1697
-    psi0_rad: float = 0.0 # initial heading angle
-    phi0_rad: float = 0.0 # initial roll angle
-    theta0_rad: float = 0.0 # initial pitch angle
+    psi0_rad: float = 0.0  # initial heading angle
+    phi0_rad: float = 0.0  # initial roll angle
+    theta0_rad: float = 0.0  # initial pitch angle
 
 
 @dataclass

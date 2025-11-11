@@ -20,13 +20,23 @@ import numpy as np
 # --- repo imports (as in your sandbox file) ---
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import units
-from vehicle_interface.vehicle_interface import ControlCommands, MockSensors, VehicleInterface  # noqa: E402
+from vehicle_interface.vehicle_interface import (
+    ControlCommands,
+    MockSensors,
+    VehicleInterface,
+)  # noqa: E402
 
 # If you place this file standalone, replace the above with:
-from jsbsim_sandbox.sandbox_sim import JSBSim_Sandbox, JSBSimVehicleInitialCond, JSBSimVehicleConfig, JSBSimSimParams
+from jsbsim_sandbox.sandbox_sim import (
+    JSBSim_Sandbox,
+    JSBSimVehicleInitialCond,
+    JSBSimVehicleConfig,
+    JSBSimSimParams,
+)
 
 
 # -------------------- helpers --------------------
+
 
 def compute_beta_rad(fdm) -> float:
     """Sideslip β ≈ atan2(v, u) in body frame. JSBSim velocities in ft/s."""
@@ -45,6 +55,7 @@ def prbs_sequence(num_steps: int, bit_len: int, amplitude: float, seed: int = 1)
 
 
 # -------------------- 1) TRIM --------------------
+
 
 def trim_for_operating_point(
     sim: JSBSim_Sandbox,
@@ -65,9 +76,12 @@ def trim_for_operating_point(
     """
     if gains is None:
         gains = {
-            "kp_phi": 0.8,   "kd_p": 0.25,
-            "kp_theta": 0.8, "kd_q": 0.25,
-            "kp_beta": 0.4,  "ki_beta": 0.05,  # small integral to wipe steady β
+            "kp_phi": 0.8,
+            "kd_p": 0.25,
+            "kp_theta": 0.8,
+            "kd_q": 0.25,
+            "kp_beta": 0.4,
+            "ki_beta": 0.05,  # small integral to wipe steady β
         }
 
     total_steps = int(round((settle_s + hold_s) / dt))
@@ -141,6 +155,7 @@ def trim_for_operating_point(
 
 # -------------------- 2) PERTURBATION --------------------
 
+
 def build_sequential_prbs(
     dt: float,
     settle_after_trim_s: float,
@@ -169,22 +184,25 @@ def build_sequential_prbs(
 
     # Aileron PRBS
     if n_seg > 0:
-        u_a[n_settle:n_settle+n_seg] = prbs_sequence(n_seg, bit_len, amp_a, seed+1)
+        u_a[n_settle : n_settle + n_seg] = prbs_sequence(
+            n_seg, bit_len, amp_a, seed + 1
+        )
 
     # Elevator PRBS
     idx_e = n_settle + n_seg
     if n_seg > 0:
-        u_e[idx_e:idx_e+n_seg] = prbs_sequence(n_seg, bit_len, amp_e, seed+2)
+        u_e[idx_e : idx_e + n_seg] = prbs_sequence(n_seg, bit_len, amp_e, seed + 2)
 
     # Rudder PRBS
     idx_r = n_settle + 2 * n_seg
     if n_seg > 0:
-        u_r[idx_r:idx_r+n_seg] = prbs_sequence(n_seg, bit_len, amp_r, seed+3)
+        u_r[idx_r : idx_r + n_seg] = prbs_sequence(n_seg, bit_len, amp_r, seed + 3)
 
     return t, u_a, u_e, u_r
 
 
 # -------------------- 3) RUN + LOG --------------------
+
 
 def run_perturbation_and_log(
     sim: JSBSim_Sandbox,
@@ -224,9 +242,15 @@ def run_perturbation_and_log(
 
     for k in range(N):
         # Apply biases + perturbations, clipped to [-1, 1]
-        cc.aileron_deflection_norm = float(np.clip(biases["u_a_bias"] + u_a[k], -1.0, 1.0))
-        cc.elevator_deflection_norm = float(np.clip(biases["u_e_bias"] + u_e[k], -1.0, 1.0))
-        cc.rudder_deflection_norm = float(np.clip(biases["u_r_bias"] + u_r[k], -1.0, 1.0))
+        cc.aileron_deflection_norm = float(
+            np.clip(biases["u_a_bias"] + u_a[k], -1.0, 1.0)
+        )
+        cc.elevator_deflection_norm = float(
+            np.clip(biases["u_e_bias"] + u_e[k], -1.0, 1.0)
+        )
+        cc.rudder_deflection_norm = float(
+            np.clip(biases["u_r_bias"] + u_r[k], -1.0, 1.0)
+        )
 
         sim.step(cc)
 
@@ -245,17 +269,39 @@ def run_perturbation_and_log(
 
     # Save CSV
     header = "t,phi,theta,p,q,r,beta,u_a,u_e,u_r,vt,h"
-    data = np.column_stack([t, phi, theta, p, q, r, beta, biases["u_a_bias"] + u_a, biases["u_e_bias"] + u_e, biases["u_r_bias"] + u_r, vt, h])
+    data = np.column_stack(
+        [
+            t,
+            phi,
+            theta,
+            p,
+            q,
+            r,
+            beta,
+            biases["u_a_bias"] + u_a,
+            biases["u_e_bias"] + u_e,
+            biases["u_r_bias"] + u_r,
+            vt,
+            h,
+        ]
+    )
     np.savetxt(out_csv, data, delimiter=",", header=header, comments="")
     print(f"[perturber] wrote {out_csv}")
 
 
 # -------------------- CLI --------------------
 
+
 def main():
-    ap = argparse.ArgumentParser(description="Trim to (phi,theta) & β≈0, then perturb and log for system ID.")
-    ap.add_argument("--aircraft", default="ask21", help="JSBSim model name (e.g., 'glider')")
-    ap.add_argument("--jsbsim_root", default="jsbsim_sandbox/", help="JSBSim root dir (optional)")
+    ap = argparse.ArgumentParser(
+        description="Trim to (phi,theta) & β≈0, then perturb and log for system ID."
+    )
+    ap.add_argument(
+        "--aircraft", default="ask21", help="JSBSim model name (e.g., 'glider')"
+    )
+    ap.add_argument(
+        "--jsbsim_root", default="jsbsim_sandbox/", help="JSBSim root dir (optional)"
+    )
     ap.add_argument("--dt", type=float, default=0.01, help="Simulation dt [s]")
 
     # Initial condition (position/airspeed/heading)
@@ -267,22 +313,46 @@ def main():
 
     # Target operating point (inertial)
     ap.add_argument("--phi_ref_deg", type=float, default=0.0, help="Target roll [deg]")
-    ap.add_argument("--theta_ref_deg", type=float, default=0.0, help="Target pitch [deg]")
+    ap.add_argument(
+        "--theta_ref_deg", type=float, default=0.0, help="Target pitch [deg]"
+    )
 
     # Trim/hold timing
-    ap.add_argument("--trim_settle_s", type=float, default=10.0, help="Pre-hold settle seconds")
-    ap.add_argument("--trim_hold_s", type=float, default=5.0, help="Hold seconds for averaging biases")
+    ap.add_argument(
+        "--trim_settle_s", type=float, default=10.0, help="Pre-hold settle seconds"
+    )
+    ap.add_argument(
+        "--trim_hold_s",
+        type=float,
+        default=5.0,
+        help="Hold seconds for averaging biases",
+    )
 
     # Perturbation design
-    ap.add_argument("--post_trim_settle_s", type=float, default=2.0, help="Settle after trim before PRBS")
-    ap.add_argument("--seg_s", type=float, default=20.0, help="Per-axis PRBS segment length [s]")
+    ap.add_argument(
+        "--post_trim_settle_s",
+        type=float,
+        default=2.0,
+        help="Settle after trim before PRBS",
+    )
+    ap.add_argument(
+        "--seg_s", type=float, default=20.0, help="Per-axis PRBS segment length [s]"
+    )
     ap.add_argument("--prbs_bit_s", type=float, default=0.5, help="PRBS bit length [s]")
-    ap.add_argument("--amp_a", type=float, default=0.05, help="Aileron amplitude (normalized)")
-    ap.add_argument("--amp_e", type=float, default=0.05, help="Elevator amplitude (normalized)")
-    ap.add_argument("--amp_r", type=float, default=0.05, help="Rudder amplitude (normalized)")
+    ap.add_argument(
+        "--amp_a", type=float, default=0.05, help="Aileron amplitude (normalized)"
+    )
+    ap.add_argument(
+        "--amp_e", type=float, default=0.05, help="Elevator amplitude (normalized)"
+    )
+    ap.add_argument(
+        "--amp_r", type=float, default=0.05, help="Rudder amplitude (normalized)"
+    )
     ap.add_argument("--seed", type=int, default=1, help="PRBS seed")
 
-    ap.add_argument("--out_csv", default="output/sysid/sysid_log.csv", help="Output CSV path")
+    ap.add_argument(
+        "--out_csv", default="output/sysid/sysid_log.csv", help="Output CSV path"
+    )
 
     args = ap.parse_args()
 
@@ -319,7 +389,9 @@ def main():
         dt=args.dt,
     )
     print(f"[trim] biases: {biases}")
-    print(f"[trim] final:  phi={snap['phi']:.3f}, theta={snap['theta']:.3f}, beta={snap['beta']:.3f}, p={snap['p']:.3f}, q={snap['q']:.3f}, r={snap['r']:.3f}")
+    print(
+        f"[trim] final:  phi={snap['phi']:.3f}, theta={snap['theta']:.3f}, beta={snap['beta']:.3f}, p={snap['p']:.3f}, q={snap['q']:.3f}, r={snap['r']:.3f}"
+    )
 
     # 2) Build perturbations (sequential PRBS per axis)
     t, u_a, u_e, u_r = build_sequential_prbs(

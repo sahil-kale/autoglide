@@ -1,12 +1,19 @@
 import numpy as np
-from jsbsim_sandbox.sandbox_sim import JSBSim_Sandbox, JSBSimVehicleInitialCond, JSBSimVehicleConfig, JSBSimSimParams
+from jsbsim_sandbox.sandbox_sim import (
+    JSBSim_Sandbox,
+    JSBSimVehicleInitialCond,
+    JSBSimVehicleConfig,
+    JSBSimSimParams,
+)
 from vehicle_interface.vehicle_interface import *
+
 
 class PIDGains:
     def __init__(self, kp: float, ki: float, kd: float):
         self.kp = kp
         self.ki = ki
         self.kd = kd
+
 
 class PIDController:
     def __init__(self, gains: PIDGains, dt: float):
@@ -23,21 +30,34 @@ class PIDController:
         derivative_error = (error - self.prev_error) / self.dt
         self.prev_error = error
 
-        control_output = (self.kp * error +
-                          self.ki * self.integral_error +
-                          self.kd * derivative_error)
+        control_output = (
+            self.kp * error + self.ki * self.integral_error + self.kd * derivative_error
+        )
         return control_output
-    
+
+
 class GliderAttitudeTrimController:
-    def __init__(self, sim: JSBSim_Sandbox, dt: float,
-                 roll_gains: PIDGains, pitch_gains: PIDGains, yaw_gains: PIDGains):
+    def __init__(
+        self,
+        sim: JSBSim_Sandbox,
+        dt: float,
+        roll_gains: PIDGains,
+        pitch_gains: PIDGains,
+        yaw_gains: PIDGains,
+    ):
         self.sim = sim
         self.dt = dt
         self.roll_controller = PIDController(roll_gains, dt)
         self.pitch_controller = PIDController(pitch_gains, dt)
         self.sideslip_controller = PIDController(yaw_gains, dt)
 
-    def step_trim_to_attitude(self, target_roll_rad: float, target_pitch_rad: float, target_sideslip_rad: float, sensor_data: MockSensors) -> ControlCommands:
+    def step_trim_to_attitude(
+        self,
+        target_roll_rad: float,
+        target_pitch_rad: float,
+        target_sideslip_rad: float,
+        sensor_data: MockSensors,
+    ) -> ControlCommands:
         # for now, get all values we need directly from the sim.
         current_roll_rad = self.sim.fdm.get_property_value("attitude/phi-rad")
         current_pitch_rad = self.sim.fdm.get_property_value("attitude/theta-rad")
@@ -45,9 +65,17 @@ class GliderAttitudeTrimController:
 
         aileron_cmd = self.roll_controller.step(target_roll_rad, current_roll_rad)
         elevator_cmd = -self.pitch_controller.step(target_pitch_rad, current_pitch_rad)
-        rudder_cmd = self.sideslip_controller.step(target_sideslip_rad, current_sideslip_rad)
+        rudder_cmd = self.sideslip_controller.step(
+            target_sideslip_rad, current_sideslip_rad
+        )
 
-        return ControlCommands(aileron_deflection_norm=aileron_cmd, elevator_deflection_norm=elevator_cmd, rudder_deflection_norm=rudder_cmd, spoiler_deflection=0.0)
+        return ControlCommands(
+            aileron_deflection_norm=aileron_cmd,
+            elevator_deflection_norm=elevator_cmd,
+            rudder_deflection_norm=rudder_cmd,
+            spoiler_deflection=0.0,
+        )
+
 
 if __name__ == "__main__":
     # Example usage
@@ -72,24 +100,29 @@ if __name__ == "__main__":
 
     sim = JSBSim_Sandbox(initial_cond, sim_params, vehicle_config)
 
-    roll_gains = PIDGains(kp=1.0, ki=0.1, kd=0.05)
-    pitch_gains = PIDGains(kp=1.2, ki=0.1, kd=0.05)
-    yaw_gains = PIDGains(kp=1.5, ki=0.1, kd=0.05)
+    roll_gains = PIDGains(kp=10, ki=0.1, kd=0.00)
+    pitch_gains = PIDGains(kp=10, ki=0.1, kd=0.00)
+    yaw_gains = PIDGains(kp=10, ki=0.1, kd=0.00)
 
-    trim_controller = GliderAttitudeTrimController(sim, dt=0.01,
-                                                  roll_gains=roll_gains,
-                                                  pitch_gains=pitch_gains,
-                                                  yaw_gains=yaw_gains)
-    
+    trim_controller = GliderAttitudeTrimController(
+        sim,
+        dt=0.01,
+        roll_gains=roll_gains,
+        pitch_gains=pitch_gains,
+        yaw_gains=yaw_gains,
+    )
+
     control_commands = ControlCommands(0.0, 0.0, 0.0, 0.0)
-    for _step in range(10000):
+    for _step in range(1000):
         sensor_data = sim.step(control_commands)
         control_commands = trim_controller.step_trim_to_attitude(
-            target_roll_rad=np.deg2rad(30),
-            target_pitch_rad=np.deg2rad(0),
+            target_roll_rad=np.deg2rad(0),
+            target_pitch_rad=np.deg2rad(10),
             target_sideslip_rad=np.deg2rad(0),
-            sensor_data=sensor_data
+            sensor_data=sensor_data,
         )
 
         # print the above with only 2 decimal places
-        print(f"Step {_step}: Roll: {sim.fdm.get_property_value('attitude/phi-rad'):.2f}, Pitch: {sim.fdm.get_property_value('attitude/theta-rad'):.2f}, Sideslip: {sim.fdm.get_property_value('aero/beta-rad'):.2f}, Aileron: {control_commands.aileron_deflection_norm:.2f}, Elevator: {control_commands.elevator_deflection_norm:.2f}, Rudder: {control_commands.rudder_deflection_norm:.2f}")
+        print(
+            f"Step {_step}: Roll: {sim.fdm.get_property_value('attitude/phi-rad'):.2f}, Pitch: {sim.fdm.get_property_value('attitude/theta-rad'):.2f}, Sideslip: {sim.fdm.get_property_value('aero/beta-rad'):.2f}, Aileron: {control_commands.aileron_deflection_norm:.2f}, Elevator: {control_commands.elevator_deflection_norm:.2f}, Rudder: {control_commands.rudder_deflection_norm:.2f}"
+        )
