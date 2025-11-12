@@ -116,7 +116,7 @@ if __name__ == "__main__":
     )
 
     control_commands = ControlCommands(0.0, 0.0, 0.0, 0.0)
-    for _step in range(1000):
+    for _step in range(2000):
         truth_data = sim.step(control_commands)
         control_commands = trim_controller.step_trim_to_attitude(
             target_roll_rad=np.deg2rad(10),
@@ -133,4 +133,6 @@ if __name__ == "__main__":
     from jsbsim_sandbox.vehicle_state_visualizer import animate_sim
 
     # breakpoint()
-    animate_sim(trim_controller.sim_truth_state_history, interval_ms=0.005)
+    animate_sim(
+        trim_controller.sim_truth_state_history, interval_ms=0.005, frame_step=10
+    )
