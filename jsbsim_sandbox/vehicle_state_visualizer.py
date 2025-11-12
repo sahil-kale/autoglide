@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from matplotlib.animation import FuncAnimation
 
-_anim_ref = None  # keep alive to prevent GC
+_anim_ref = None  # prevent GC
 
 
 # ---------- utilities ----------
@@ -21,7 +21,7 @@ def _nice_limits(vmin: float, vmax: float, pad: float = 10.0) -> Tuple[float, fl
 def latlon_to_local_NE(
     lat_deg: np.ndarray, lon_deg: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Local tangent plane in meters (origin = first sample), returning (N, E)."""
+    """Local tangent plane in meters (origin = first sample): returns (N, E)."""
     if len(lat_deg) == 0:
         return np.array([]), np.array([])
     lat0 = math.radians(float(lat_deg[0]))
@@ -77,17 +77,17 @@ def R_body_to_NED_from_euler_zyx(roll: float, pitch: float, yaw: float) -> np.nd
     Rz = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]])
     Ry = np.array([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]])
     Rx = np.array([[1, 0, 0], [0, cr, -sr], [0, sr, cr]])
-    return Rz @ Ry @ Rx  # body -> NED
+    return Rz @ Ry @ Rx
 
 
 def _set_axes_equal_3d(ax):
-    """Set 3D axes to equal scale (so aircraft isn’t distorted)."""
+    """Equal scale on all 3 axes so the aircraft isn’t distorted."""
     limits = np.array([ax.get_xlim3d(), ax.get_ylim3d(), ax.get_zlim3d()])
     span = limits[:, 1] - limits[:, 0]
     centers = np.mean(limits, axis=1)
     max_range = max(span)
-    for ctr, axis_set in zip(centers, [ax.set_xlim3d, ax.set_ylim3d, ax.set_zlim3d]):
-        axis_set([ctr - max_range / 2, ctr + max_range / 2])
+    for ctr, setter in zip(centers, [ax.set_xlim3d, ax.set_ylim3d, ax.set_zlim3d]):
+        setter([ctr - max_range / 2, ctr + max_range / 2])
 
 
 # ---------- main ----------
@@ -100,32 +100,40 @@ def animate_sim(
     interval_ms: int = 30,
     frame_step: int = 2,
     wire_scale: float = 5.0,
+    view_elev: float = 25,
+    view_azim: float = -45,  # tweak if you want a different oblique
 ):
     """
-    Flight playback viewer (Local NED):
-      - 3D: N (x), E (y), D (z), +D down (axis visually inverted).
-      - Body frame is +Z down.
-      - Euler angles from attitude.get_euler() in radians (roll, pitch, yaw).
+    Flight playback viewer (Display in E, N, Alt):
+      - Display axes: X=East (m), Y=North (m), Z=Altitude (m, up)  [right-handed]
+      - Data are still NED; we convert NED → (E, N, Alt) for plotting:
+            x =  E
+            y =  N
+            z =  alt - ΔD
+      - Body frame is +Z_down; rotations use aerospace ZYX (body→NED).
     """
     assert len(states) >= 2
     states = sorted(states, key=lambda s: float(s.time_s))
 
-    t = np.array([float(s.time_s) for s in states], dtype=float)
-    alt = np.array([float(s.altitude_m) for s in states], dtype=float)
-    tas = np.array([float(s.airspeed_mps) for s in states], dtype=float)
-    p = np.array([float(s.p_radps) for s in states], dtype=float)
-    q = np.array([float(s.q_radps) for s in states], dtype=float)
-    r = np.array([float(s.r_radps) for s in states], dtype=float)
-    lat = np.array([float(s.latitude_deg) for s in states], dtype=float)
-    lon = np.array([float(s.longitude_deg) for s in states], dtype=float)
+    # Series
+    t = np.array([float(s.time_s) for s in states])
+    alt = np.array([float(s.altitude_m) for s in states])
+    tas = np.array([float(s.airspeed_mps) for s in states])
+    p = np.array([float(s.p_radps) for s in states])
+    q = np.array([float(s.q_radps) for s in states])
+    r = np.array([float(s.r_radps) for s in states])
+    lat = np.array([float(s.latitude_deg) for s in states])
+    lon = np.array([float(s.longitude_deg) for s in states])
 
+    # Position: compute N, E; display will be (E, N, Alt)
     N, E = latlon_to_local_NE(lat, lon)
-    D = alt[0] - alt  # +Down
 
+    # Attitude
     eulers = np.array([euler_from_state(s) for s in states], dtype=float)
     roll, pitch, yaw = eulers[:, 0], eulers[:, 1], eulers[:, 2]
     roll_deg, pitch_deg, yaw_deg = np.degrees(roll), np.degrees(pitch), np.degrees(yaw)
 
+    # Animation frames (decimated)
     idx_anim = np.arange(0, len(t), max(1, frame_step))
     R_list = [R_body_to_NED_from_euler_zyx(roll[k], pitch[k], yaw[k]) for k in idx_anim]
 
@@ -145,28 +153,32 @@ def animate_sim(
     ax_tas = fig.add_subplot(gs[1, 1])
     ax_rates = fig.add_subplot(gs[0, 2])
     ax_euler = fig.add_subplot(gs[1, 2])
-    fig.suptitle("Flight Playback Viewer — Local NED (Equal Aspect)", fontsize=14)
+    fig.suptitle(
+        "Flight Playback Viewer — East, North, Alt (Equal Aspect)", fontsize=14
+    )
 
-    # 3D track
-    (track_full,) = ax3d.plot(N, E, D, linewidth=1, alpha=0.3)
+    # 3D track in (E, N, Alt)
+    (track_full,) = ax3d.plot(E, N, alt, linewidth=1, alpha=0.3)
     (track_live,) = ax3d.plot([], [], [], linewidth=2)
+
+    # Wireframe + artists
     body_pts_b, body_segs = aircraft_wireframe(scale=wire_scale)
     body_lines = [
         (ax3d.plot([], [], [], linewidth=2)[0], i0, i1) for i0, i1 in body_segs
     ]
 
-    nlo, nhi = _nice_limits(float(np.nanmin(N)), float(np.nanmax(N)), pad=10.0)
+    # Limits (on displayed axes)
     elo, ehi = _nice_limits(float(np.nanmin(E)), float(np.nanmax(E)), pad=10.0)
-    dlo, dhi = _nice_limits(float(np.nanmin(D)), float(np.nanmax(D)), pad=5.0)
-    ax3d.set_xlim(nlo, nhi)
-    ax3d.set_ylim(elo, ehi)
-    ax3d.set_zlim(dlo, dhi)
-    ax3d.set_xlabel("North (m)")
-    ax3d.set_ylabel("East (m)")
-    ax3d.set_zlabel("Down (m)")
-    ax3d.view_init(elev=25, azim=-45)
-    ax3d.invert_zaxis()  # visually downward
-    _set_axes_equal_3d(ax3d)  # <---- make all axes equal
+    nlo, nhi = _nice_limits(float(np.nanmin(N)), float(np.nanmax(N)), pad=10.0)
+    zlo, zhi = _nice_limits(float(np.nanmin(alt)), float(np.nanmax(alt)), pad=5.0)
+    ax3d.set_xlim(elo, ehi)
+    ax3d.set_ylim(nlo, nhi)
+    ax3d.set_zlim(zlo, zhi)
+    ax3d.set_xlabel("East (m)")
+    ax3d.set_ylabel("North (m)")
+    ax3d.set_zlabel("Altitude (m)")
+    ax3d.view_init(elev=view_elev, azim=view_azim)
+    _set_axes_equal_3d(ax3d)
 
     # Time traces
     ax_alt.plot(t, alt)
@@ -198,15 +210,24 @@ def animate_sim(
     for ax in (ax_alt, ax_tas, ax_rates, ax_euler):
         ax.set_xlim(t[0], t[-1])
 
+    # ---- animation update ----
     def update(i: int):
         k = idx_anim[i]
-        track_live.set_data(N[: k + 1], E[: k + 1])
-        track_live.set_3d_properties(D[: k + 1])
 
+        # Track (E, N, Alt)
+        track_live.set_data(E[: k + 1], N[: k + 1])
+        track_live.set_3d_properties(alt[: k + 1])
+
+        # Body pose:
+        # rotated (ΔN, ΔE, ΔD) in NED; display (E, N, Alt) = (ΔE, ΔN, alt - ΔD)
         R = R_list[i]
         rotated = body_pts_b @ R.T
         Pw = np.column_stack(
-            (N[k] + rotated[:, 0], E[k] + rotated[:, 1], D[k] + rotated[:, 2])
+            (
+                E[k] + rotated[:, 1],  # X = East
+                N[k] + rotated[:, 0],  # Y = North
+                alt[k] - rotated[:, 2],  # Z = Altitude
+            )
         )
         for line, i0, i1 in body_lines:
             line.set_data([Pw[i0, 0], Pw[i1, 0]], [Pw[i0, 1], Pw[i1, 1]])

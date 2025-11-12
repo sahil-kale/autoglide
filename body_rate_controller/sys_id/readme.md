@@ -13,10 +13,6 @@ $\boldsymbol{\omega} = [\,p,\; q,\; r\,]$
 - Pitch ($q$): Rotation about the Y-axis
 - Yaw ($r$): Rotation about the Z-axis*
 
-- Roll ($p$): Rotation about the X-axis
-- Pitch ($q$): Rotation about the Y-axis
-- Yaw ($r$): Rotation about the Z-axis*
-
 ## Control Surfaces:
 - $\delta_{aileron}$: Aileron deflection (normalized -1 to 1, where positive deflects right aileron up, inducing roll to the right)
 - $\delta_{elevator}$: Elevator deflection (normalized -1 to 1, where positive deflects elevator up, inducing pitch up)
