@@ -119,8 +119,8 @@ if __name__ == "__main__":
     for _step in range(4000):
         truth_data = sim.step(control_commands)
         control_commands = trim_controller.step_trim_to_attitude(
-            target_roll_rad=np.deg2rad(45),
-            target_pitch_rad=np.deg2rad(-10),
+            target_roll_rad=np.deg2rad(60),
+            target_pitch_rad=np.deg2rad(0),
             target_sideslip_rad=np.deg2rad(0),
             truth_data=truth_data,
         )

@@ -154,23 +154,23 @@ With the above assumptions and simplifications, we can define the model to fit a
 $$
 
 \begin{bmatrix}
-\Delta \dot{p} \\
-\Delta \dot{q} \\
-\Delta \dot{r}
+\Delta p_{k+1} \\
+\Delta q_{k+1} \\
+\Delta r_{k+1}
 \end{bmatrix}
 =
 A
 \begin{bmatrix}
-\Delta p \\
-\Delta q \\
-\Delta r
+\Delta p_{k} \\
+\Delta q_{k} \\
+\Delta r_{k}
 \end{bmatrix}
 +
 B
 \begin{bmatrix}
-\Delta \delta_a \\
-\Delta \delta_e \\
-\Delta \delta_r
+\Delta \delta_{a_{k}} \\
+\Delta \delta_{e_{k}} \\
+\Delta \delta_{r_{k}}
 \end{bmatrix}
 $$
 
@@ -182,14 +182,14 @@ Where:
 
 The optimization objective during system identification can be formally defined as:
 $$
-\min_{L, M, N} \sum_{i=1}^{j} \left( \Delta \dot{\omega}_i - A \Delta \omega_i - B \Delta \delta_i \right)^2
+\min_{L, M, N} \sum_{k=0}^{j - 1} \left( \Delta \omega_{k+1} - A \Delta \omega_k - B \Delta \delta_k \right)^2
 $$
 
 Where:
 - $j$ is the total number of data samples collected during the system identification experiment.
-- $\Delta \dot{\omega}_i$ is the measured angular acceleration at sample $i$.
-- $\Delta \omega_i$ is the measured angular rate deviation at sample $i$.
-- $\Delta \delta_i$ is the measured control surface deviation at sample $i$.
+- $\Delta \omega_{k+1}$ is the measured angular acceleration at sample $k+1$.
+- $\Delta \omega_k$ is the measured angular rate deviation at sample $k$.
+- $\Delta \delta_k$ is the measured control surface deviation at sample $k$.
 
 ## Identification Procedure
 ### Trim Condition Setup
@@ -225,5 +225,10 @@ Once the aircraft is stabilized at the desired attitude, we log the steady-state
 Once the aircraft is in a trimmed condition, we apply a series of perturbation inputs to excite the body angular rate dynamics. The perturbation input follows the following general form:
 - Step Input: A step change in control surface deflection, exercising positive and negative deflection.
 - Random Binary Sequence (RBS): A pseudo-random sequence of control surface deflections, switching between positive and negative deflections at a specified frequency.
+
+For each trim condition, we record time histories of:
+- body rates $[p, q, r]$,
+- their finite difference approximations.
+- control surface deflections $[\delta_a, \delta_e, \delta_r]$,
 
 Once the above steps are completed, the collected data is used to solve the optimization problem defined earlier, yielding the identified state-space matrices A and B for the body-rate dynamics.
