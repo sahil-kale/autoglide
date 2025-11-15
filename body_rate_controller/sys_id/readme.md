@@ -102,6 +102,47 @@ From the above equations, we can make several simplifications to the model in or
 - The body-rate controller within this autopilot is intended to operate within a coordinated flight regime, where sideslip ($\beta$) is maintained at or close to zero. As a result, we can remove sideslip from the state vector, and treat it as a disturbance that is rejected by the outer-loop controller.
 - In steady, coordinated flight, the aircraft’s angle of attack ($\alpha$) is largely determined by its pitch attitude ($\theta$) and flight path angle, rather than being an independent state variable. In other words, $\alpha$ varies slowly and predictably with $\theta$ for small perturbations around trim. Because the body-rate controller operates at a much faster timescale than changes in $\alpha$, and because $\alpha$’s influence on aerodynamic derivatives is already captured through the dependence on airspeed (via dynamic pressure), we can effectively absorb its variation into the same gain-scheduling framework used for velocity. This allows us to omit $\alpha$ from the state vector without losing meaningful fidelity for inner-loop control design.
 
+### Bank Angle and Coordinated Turn Kinematics
+
+The above model focuses on the body angular rates $\omega = [\,p,\; q,\; r\,]$ as the primary states of interest. An important subtlety is that, even when sideslip ($\beta$) and angle of attack ($\alpha$) are not explicitly included as states, the trim values of $(p, q, r)$ (and thus, the linearized dynamics) still depend on the bank angle $\phi$ through coordinated–turn kinematics.
+
+For a steady, level, coordinated turn at constant airspeed $V$ and bank angle $\phi$ (with $\beta \approx 0$ and constant altitude), the required centripetal acceleration is provided by the horizontal component of lift. This yields the familiar relationship between yaw (heading) rate and bank angle:
+
+$$
+\dot{\psi} \approx \frac{g \tan \phi}{V}
+$$
+
+Expressed in the body frame, this leads to nonzero trim body rates,
+$(p_0, q_0, r_0)$, even though the motion is “steady” in an inertial sense. To first order (for small pitch angles),
+the trim yaw rate is approximately
+
+$$
+r_0(\phi) \;\approx\; \frac{g \sin \phi}{V}
+$$
+
+and there is a smaller but nonzero trim pitch rate $q_0(\phi)$ due to the geometry of the turn and the flight–path angle. In straight–and–level flight ($\phi \approx 0$), we have
+
+$$
+p_0 \approx 0, \quad q_0 \approx 0, \quad r_0 \approx 0,
+$$
+
+whereas in a coordinated turn at $\phi \neq 0$ the trim body rates are nonzero.
+
+Returning to the body–frame equations of motion,
+
+$$
+\begin{aligned}
+J_x \dot{p} &= (J_y - J_z)\, q r + l \\
+J_y \dot{q} &= (J_z - J_x)\, p r + m \\
+J_z \dot{r} &= (J_x - J_y)\, p q + n,
+\end{aligned}
+$$
+
+we observe that the inertial coupling terms (the products $p q$, $p r$, $q r$) are evaluated at the trim rates $(p_0, q_0, r_0)$ when we linearize about a trim condition. In straight–and–level flight, these products are approximately zero, and the corresponding inertial coupling matrix in the linearized $A$ matrix is negligible. In a coordinated turn, however, the nonzero trim rates induce additional coupling terms in $A$ that **do not appear** in a straight–and–level linearization.
+
+As a result, a body–rate model identified purely from straight–and–level data will generally **not** capture the dynamics observed in a banked, coordinated turn at the same airspeed. To obtain a model that is valid across both regimes, we must treat the system as **parameter–varying in bank angle** (or equivalently, in load factor $n_z$) and perform system identification at both straight–and–level and banked trim conditions.
+
+
 ### Model-to-fit
 With the above assumptions and simplifications, we can define the model to fit as follows:
 $$
@@ -112,41 +153,26 @@ $$
 \Delta \dot{r}
 \end{bmatrix}
 =
-\underbrace{
-\begin{bmatrix}
-L_p & 0 & 0 \\
-0 & M_q & M_r \\
-0 & N_q & N_r
-\end{bmatrix}
-}_{A}
+A
 \begin{bmatrix}
 \Delta p \\
 \Delta q \\
 \Delta r
 \end{bmatrix}
 +
-\underbrace{
-\begin{bmatrix}
-L_{\delta_a} & 0 & 0 \\
-0 & M_{\delta_e} & M_{\delta_r} \\
-0 & N_{\delta_e} & N_{\delta_r}
-\end{bmatrix}
-}_{B}
+B
 \begin{bmatrix}
 \Delta \delta_a \\
 \Delta \delta_e \\
 \Delta \delta_r
 \end{bmatrix}
-
 $$
 
 Where:
-- $L_p$, $M_q$, $M_r$, $N_q$, $N_r$ are the stability derivatives to be identified.
-- $L_{\delta_a}$, $M_{\delta_e}$, $M_{\delta_r}$, $N_{\delta_e}$, $N_{\delta_r}$ are the control effectiveness derivatives to be identified.
+- $A$ is a 3x3 matrix representing the state transition dynamics of body angular rates.
+- $B$ is a 3x3 matrix representing the control effectiveness of the control surfaces on body angular rates.
 - $\Delta p$, $\Delta q$, $\Delta r$ are the deviations of body angular rates from trim.
 - $\Delta \delta_a$, $\Delta \delta_e$, $\Delta \delta_r$ are the deviations of control surface deflections from trim.
-
-Note the 0'ed out terms in the A and B matrices, which stem from the assumptions made earlier (specifically, lack of AoA and sideslip states accounted for in the model), and the core equations of motion that govern the body angular rates (ex: the pitch rate $\dot{q}$ is not directly affected by aileron deflection, hence the 0 in that position in the B matrix).
 
 The optimization objective during system identification can be formally defined as:
 $$
@@ -163,7 +189,7 @@ Where:
 ### Trim Condition Setup
 In order to develop the small-signal linear model, we first need to establish a trim condition for the aircraft (mathematically, a point where $f(x_{trim}, u_{trim}) = 0$). 
 
-The method chosen for this procedure is to have a coarsely-tuned PID controller target a specific pitch angle $\theta_{trim}$, while maintaining a roll angle $\phi_{trim} = 0 \ rad/s$ and sideslip $\beta = 0 \ rad$. The gains for this PID controller need not be perfect (or have any real basis in flight dynamics theory, aka a "yolo-tune) - they just need to be good enough to maintain a steady attitude for the purposes of data collection.
+The method chosen for this procedure is to have a coarsely-tuned PID controller target a specific pitch angle $\theta_{trim}$ and a specific roll angle $\phi_{trim}$, while maintaining a sideslip angle of $\beta = 0 \ rad$ (corresponding to coordinated flight). The gains for this PID controller need not be perfect (or have any real basis in flight dynamics theory, aka a "yolo-tune) - they just need to be good enough to maintain a steady attitude for the purposes of data collection.
 
 The PID controller follows the following difference equation form
 $u[k] = K_p e[k] + K_i \sum_{n=0}^{k} e[n] + K_d (e[k] - e[k-1])$
