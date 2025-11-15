@@ -98,9 +98,15 @@ Where:
 
 ### Model Simplifications
 From the above equations, we can make several simplifications to the model in order to focus on the body angular rates ($\omega = [\,p,\; q,\; r\,]$) as the primary states of interest for the body-rate controller.
+
 - We can conclude that the velocity state has a non-trivial impact on control surface effectiveness, as it's directly related to dynamic pressure ($\bar{q} = \frac{\rho V^2}{2}$). This implies that the identified model will be valid only within a certain range of airspeeds (or dynamic pressures). As a result, we may need to perform system identification at multiple trim conditions to cover the full flight envelope, and schedule a controller gain based on airspeed or dynamic pressure. In effect, the system is linear parameter varying (LPV), but we can treat it as a set of LTI systems at various operating points and remove the dependency on velocity from the state vector.
+
 - The body-rate controller within this autopilot is intended to operate within a coordinated flight regime, where sideslip ($\beta$) is maintained at or close to zero. As a result, we can remove sideslip from the state vector, and treat it as a disturbance that is rejected by the outer-loop controller.
-- In steady, coordinated flight, the aircraft’s angle of attack ($\alpha$) is largely determined by its pitch attitude ($\theta$) and flight path angle, rather than being an independent state variable. In other words, $\alpha$ varies slowly and predictably with $\theta$ for small perturbations around trim. Because the body-rate controller operates at a much faster timescale than changes in $\alpha$, and because $\alpha$’s influence on aerodynamic derivatives is already captured through the dependence on airspeed (via dynamic pressure), we can effectively absorb its variation into the same gain-scheduling framework used for velocity. This allows us to omit $\alpha$ from the state vector without losing meaningful fidelity for inner-loop control design.
+
+- In steady, coordinated flight, the aircraft’s angle of attack ($\alpha$) is largely determined by its pitch attitude ($\theta$) and flight path angle, rather than being an independent state variable. In other words, $\alpha$ varies slowly and predictably with $\theta$ for small perturbations around trim. Because the body-rate controller operates at a much faster timescale than changes in $\alpha$, and because $\alpha$’s influence on aerodynamic derivatives is already captured through the dependence on airspeed (via dynamic pressure) and trim condition, we can omit $\alpha$ from the state vector and treat its effect as being absorbed into the gain-scheduling over operating points.
+
+- However, even within this simplified representation, the trim bank angle $\phi$ (or equivalently, the associated load factor $n_z$ in a coordinated turn) changes the trim body rates $(p_0, q_0, r_0)$ and therefore the linearized body-rate dynamics through the inertial coupling terms in the equations of motion. To capture both straight–and–level and banked coordinated turn behavior, we treat the identified $(A, B)$ matrices as weakly dependent on bank angle and perform system identification at multiple trim conditions (e.g., $\phi \approx 0^\circ$ and a representative turning bank angle).
+
 
 ### Bank Angle and Coordinated Turn Kinematics
 
@@ -198,7 +204,22 @@ Where:
 - $e[k]$ is the error signal at time step $k$ (difference between desired and actual attitude)
 - $K_p$, $K_i$, $K_d$ are the proportional, integral, and derivative gains, respectively.
 
-Once the aircraft is stabilized at the desired attitude, we log the steady-state control surface deflections ($\delta_{aileron, trim}$, $\delta_{elevator, trim}$, $\delta_{rudder, trim}$).
+We consider at least two representative trim conditions at a given airspeed:
+
+1. **Straight-and-Level (S&L) Trim**  
+   A coarse PID (or attitude-hold) controller is used to:
+   - target a specific pitch angle $\theta_{trim}$,
+   - maintain roll angle $\phi_{trim} \approx 0$,
+   - drive sideslip $\beta \approx 0$,
+   - hold airspeed and altitude approximately constant.
+
+2. **Coordinated Turn Trim**  
+   To capture the effect of bank-angle-dependent kinematics on the body-rate dynamics, we also establish a trim corresponding to a steady, coordinated turn at a representative bank angle (e.g., $\phi_{trim} \approx 30^\circ$):
+   - roll angle $\phi_{trim} \neq 0$ (constant bank),
+   - sideslip $\beta \approx 0$ (coordinated),
+   - airspeed and altitude approximately constant.
+
+Once the aircraft is stabilized at the desired attitude, we log the steady-state control surface deflections ($\delta_{aileron, trim}$, $\delta_{elevator, trim}$, $\delta_{rudder, trim}$), as well as the corresponding trim body rates ($p_0$, $q_0$, $r_0$).
 
 ### Perturbation Input
 Once the aircraft is in a trimmed condition, we apply a series of perturbation inputs to excite the body angular rate dynamics. The perturbation input follows the following general form:
