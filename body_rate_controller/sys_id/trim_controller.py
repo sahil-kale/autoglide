@@ -1,13 +1,22 @@
 import numpy as np
 import click
+from dataclasses import dataclass
+from typing import Optional
+
 from jsbsim_sandbox.sandbox_sim import (
     JSBSim_Sandbox,
-    JSBSimVehicleInitialCond,
     JSBSimVehicleConfig,
+    JSBSimVehicleInitialCond,
     JSBSimSimParams,
 )
-from vehicle_interface.vehicle_interface import *
+from vehicle_interface.vehicle_interface import ControlCommands, SimTruthState
 from utils.pid import PIDController, PIDConfig
+
+
+@dataclass
+class TrimConfig:
+    trim_angle_threshold_deg: float
+    max_d_body_rate_degps2: float
 
 
 class GliderAttitudeTrimController:
@@ -18,20 +27,23 @@ class GliderAttitudeTrimController:
         roll_gains: PIDConfig,
         pitch_gains: PIDConfig,
         yaw_gains: PIDConfig,
-    ):
+        trim_config: TrimConfig | None = None,
+    ) -> None:
         self.sim = sim
         self.dt = dt
+
         self.roll_controller = PIDController(roll_gains, dt)
         self.pitch_controller = PIDController(pitch_gains, dt)
         self.sideslip_controller = PIDController(yaw_gains, dt)
-        self.sim_truth_state_history = []
 
-        self.trim_angle_threshold_rad = np.deg2rad(7.5)  # max attitude error for trim
-        self.max_d_body_rate_radps = np.deg2rad(0.04)  # max body rate change per step
-        self.in_trim_persistence_counter = 0
-        self.in_trim_persistence_threshold_s = (
-            1 * self.dt
-        )  # number of steps to confirm trim
+        self.sim_truth_state_history: list[SimTruthState] = []
+
+        cfg = trim_config
+        self.trim_angle_threshold_rad = np.deg2rad(cfg.trim_angle_threshold_deg)
+        self.max_d_body_rate_radps2 = np.deg2rad(cfg.max_d_body_rate_degps2)
+
+        self.in_trim_persistence_counter_s = 0.0
+        self.in_trim_persistence_threshold_s = self.dt
 
     def step_trim_to_attitude(
         self,
@@ -40,13 +52,11 @@ class GliderAttitudeTrimController:
         target_sideslip_rad: float,
         truth_data: SimTruthState,
     ) -> ControlCommands:
-        euler_angles = truth_data.attitude.get_euler()
-        current_roll_rad = euler_angles[0]
-        current_pitch_rad = euler_angles[1]
+        roll_rad, pitch_rad, _ = truth_data.attitude.get_euler()
         current_sideslip_rad = truth_data.sideslip_rad
 
-        aileron_cmd = self.roll_controller.step(target_roll_rad, current_roll_rad)
-        elevator_cmd = -self.pitch_controller.step(target_pitch_rad, current_pitch_rad)
+        aileron_cmd = self.roll_controller.step(target_roll_rad, roll_rad)
+        elevator_cmd = -self.pitch_controller.step(target_pitch_rad, pitch_rad)
         rudder_cmd = self.sideslip_controller.step(
             target_sideslip_rad, current_sideslip_rad
         )
@@ -76,95 +86,148 @@ class GliderAttitudeTrimController:
         )
 
         control_commands = ControlCommands(0.0, 0.0, 0.0, 0.0)
-        previous_body_rates = None
+        previous_body_rates: Optional[np.ndarray] = None
+        d_body_rates_radps2 = np.zeros(3)
 
         for step in range(max_steps):
             truth_data = self.sim.step(control_commands)
+
             control_commands = self.step_trim_to_attitude(
                 target_roll_rad=target_roll_rad,
                 target_pitch_rad=target_pitch_rad,
                 target_sideslip_rad=target_sideslip_rad,
                 truth_data=truth_data,
             )
-            body_rates = np.array(
-                [truth_data.p_radps, truth_data.q_radps, truth_data.r_radps]
-            )
 
-            if previous_body_rates is None:
-                previous_body_rates = body_rates
+            body_rates = self._compute_body_rates(truth_data)
 
-            d_body_rate_rad_per_s_squared = (
-                np.abs(body_rates - previous_body_rates) / self.dt
-            )
-
-            d_body_rate_less_than_max = np.all(
-                d_body_rate_rad_per_s_squared < self.max_d_body_rate_radps
-            )
-            attitude_error = np.array(
-                [
-                    np.abs(target_roll_rad - truth_data.attitude.get_euler()[0]),
-                    np.abs(target_pitch_rad - truth_data.attitude.get_euler()[1]),
-                    np.abs(target_sideslip_rad - truth_data.sideslip_rad),
-                ]
-            )
-
-            attitude_error_less_than_threshold = np.all(
-                attitude_error < self.trim_angle_threshold_rad
-            )
-
-            if d_body_rate_less_than_max and attitude_error_less_than_threshold:
-                self.in_trim_persistence_counter += 1 * self.dt
-            else:
-                self.in_trim_persistence_counter = 0
-
-            if self.in_trim_persistence_counter >= self.in_trim_persistence_threshold_s:
-                click.secho(f"Trim achieved in {step} steps.", fg="green")
-                click.secho(
-                    f"Final Attitude - Roll: {np.rad2deg(truth_data.attitude.get_euler()[0]):.2f} deg, "
-                    f"Pitch: {np.rad2deg(truth_data.attitude.get_euler()[1]):.2f} deg, "
-                    f"Sideslip: {np.rad2deg(truth_data.sideslip_rad):.2f} deg",
-                    fg="green",
+            if previous_body_rates is not None:
+                d_body_rates_radps2 = self._compute_body_rate_derivative(
+                    body_rates, previous_body_rates
                 )
-                click.secho(
-                    f"Final Body Rates - p: {np.rad2deg(truth_data.p_radps):.2f} deg/s, "
-                    f"q: {np.rad2deg(truth_data.q_radps):.2f} deg/s, "
-                    f"r: {np.rad2deg(truth_data.r_radps):.2f} deg/s",
-                    fg="green",
-                )
-                click.secho(
-                    f"Final body rate changes - dp/dt: {np.rad2deg(d_body_rate_rad_per_s_squared[0]):.2f} deg/s², "
-                    f"dq/dt: {np.rad2deg(d_body_rate_rad_per_s_squared[1]):.2f} deg/s², "
-                    f"dr/dt: {np.rad2deg(d_body_rate_rad_per_s_squared[2]):.2f} deg/s²",
-                    fg="green",
-                )
-                return True
+
+                if self._update_trim_persistence(
+                    truth_data,
+                    target_roll_rad=target_roll_rad,
+                    target_pitch_rad=target_pitch_rad,
+                    target_sideslip_rad=target_sideslip_rad,
+                    d_body_rates_radps2=d_body_rates_radps2,
+                ):
+                    self._log_trim_success(truth_data, d_body_rates_radps2, step)
+                    return True
 
             previous_body_rates = body_rates
 
-        failure_msg = "Failed to achieve trim within the maximum number of steps."
-        failure_msg += (
-            f" Last body rates: p: {np.rad2deg(truth_data.p_radps):.2f} deg/s, "
-        )
-        failure_msg += f"q: {np.rad2deg(truth_data.q_radps):.2f} deg/s, "
-        failure_msg += f"r: {np.rad2deg(truth_data.r_radps):.2f} deg/s. "
-        failure_msg += f"Last body rate changes: dp/dt: {np.rad2deg(d_body_rate_rad_per_s_squared[0]):.2f} deg/s², "
-        failure_msg += (
-            f"dq/dt: {np.rad2deg(d_body_rate_rad_per_s_squared[1]):.2f} deg/s², "
-        )
-        failure_msg += (
-            f"dr/dt: {np.rad2deg(d_body_rate_rad_per_s_squared[2]):.2f} deg/s²"
-        )
-
-        click.secho(failure_msg, fg="red")
+        self._log_trim_failure(truth_data, d_body_rates_radps2)
 
         if raise_on_fail:
             raise RuntimeError("Failed to achieve trim.")
 
         return False
 
+    def _compute_body_rates(self, truth_data: SimTruthState) -> np.ndarray:
+        return np.array(
+            [truth_data.p_radps, truth_data.q_radps, truth_data.r_radps],
+            dtype=float,
+        )
+
+    def _compute_body_rate_derivative(
+        self,
+        body_rates: np.ndarray,
+        previous_body_rates: np.ndarray,
+    ) -> np.ndarray:
+        return np.abs(body_rates - previous_body_rates) / self.dt
+
+    def _compute_attitude_error(
+        self,
+        truth_data: SimTruthState,
+        target_roll_rad: float,
+        target_pitch_rad: float,
+        target_sideslip_rad: float,
+    ) -> np.ndarray:
+        roll_rad, pitch_rad, _ = truth_data.attitude.get_euler()
+        sideslip_rad = truth_data.sideslip_rad
+
+        return np.array(
+            [
+                np.abs(target_roll_rad - roll_rad),
+                np.abs(target_pitch_rad - pitch_rad),
+                np.abs(target_sideslip_rad - sideslip_rad),
+            ],
+            dtype=float,
+        )
+
+    def _update_trim_persistence(
+        self,
+        truth_data: SimTruthState,
+        target_roll_rad: float,
+        target_pitch_rad: float,
+        target_sideslip_rad: float,
+        d_body_rates_radps2: np.ndarray,
+    ) -> bool:
+        accel_ok = np.all(d_body_rates_radps2 < self.max_d_body_rate_radps2)
+        attitude_error = self._compute_attitude_error(
+            truth_data,
+            target_roll_rad=target_roll_rad,
+            target_pitch_rad=target_pitch_rad,
+            target_sideslip_rad=target_sideslip_rad,
+        )
+        attitude_ok = np.all(attitude_error < self.trim_angle_threshold_rad)
+
+        if accel_ok and attitude_ok:
+            self.in_trim_persistence_counter_s += self.dt
+        else:
+            self.in_trim_persistence_counter_s = 0.0
+
+        return self.in_trim_persistence_counter_s >= (
+            self.in_trim_persistence_threshold_s
+        )
+
+    def _format_trim_debug_info(
+        self,
+        truth_data: SimTruthState,
+        d_body_rates_radps2: np.ndarray,
+    ) -> str:
+        roll_rad, pitch_rad, _ = truth_data.attitude.get_euler()
+        return (
+            f"Attitude - Roll: {np.rad2deg(roll_rad):.2f} deg, "
+            f"Pitch: {np.rad2deg(pitch_rad):.2f} deg, "
+            f"Sideslip: {np.rad2deg(truth_data.sideslip_rad):.2f} deg\n"
+            f"Body Rates - p: {np.rad2deg(truth_data.p_radps):.2f} deg/s, "
+            f"q: {np.rad2deg(truth_data.q_radps):.2f} deg/s, "
+            f"r: {np.rad2deg(truth_data.r_radps):.2f} deg/s\n"
+            f"Body rate changes - "
+            f"dp/dt: {np.rad2deg(d_body_rates_radps2[0]):.2f} deg/s², "
+            f"dq/dt: {np.rad2deg(d_body_rates_radps2[1]):.2f} deg/s², "
+            f"dr/dt: {np.rad2deg(d_body_rates_radps2[2]):.2f} deg/s²"
+        )
+
+    def _log_trim_success(
+        self,
+        truth_data: SimTruthState,
+        d_body_rates_radps2: np.ndarray,
+        step: int,
+    ) -> None:
+        click.secho(f"Trim achieved in {step} steps.", fg="green")
+        click.secho(
+            self._format_trim_debug_info(truth_data, d_body_rates_radps2), fg="green"
+        )
+
+    def _log_trim_failure(
+        self,
+        truth_data: SimTruthState,
+        d_body_rates_radps2: np.ndarray,
+    ) -> None:
+        click.secho(
+            "Failed to achieve trim within the maximum number of steps. "
+            + self._format_trim_debug_info(truth_data, d_body_rates_radps2),
+            fg="red",
+        )
+
 
 if __name__ == "__main__":
-    # Example usage
+    from jsbsim_sandbox.vehicle_state_visualizer import animate_sim
+    
     initial_cond = JSBSimVehicleInitialCond(
         h0_m=1000.0,
         vt0_mps=30.0,
@@ -196,6 +259,10 @@ if __name__ == "__main__":
         roll_gains=roll_gains,
         pitch_gains=pitch_gains,
         yaw_gains=yaw_gains,
+        trim_config=TrimConfig(
+            trim_angle_threshold_deg=5.0,
+            max_d_body_rate_degps2=0.1,
+        ),
     )
 
     trim_controller.run_until_trim(
@@ -204,9 +271,6 @@ if __name__ == "__main__":
         target_sideslip_rad=np.deg2rad(0),
     )
 
-    from jsbsim_sandbox.vehicle_state_visualizer import animate_sim
-
-    # breakpoint()
     animate_sim(
         trim_controller.sim_truth_state_history, interval_ms=0.005, frame_step=10
     )
