@@ -227,7 +227,7 @@ class GliderAttitudeTrimController:
 
 if __name__ == "__main__":
     from jsbsim_sandbox.vehicle_state_visualizer import animate_sim
-    
+
     initial_cond = JSBSimVehicleInitialCond(
         h0_m=1000.0,
         vt0_mps=30.0,
