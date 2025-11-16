@@ -31,16 +31,24 @@ class GliderAttitudeTrimController:
     ) -> None:
         self.sim = sim
         self.dt = dt
-
+        self.cfg = trim_config
         self.roll_controller = PIDController(roll_gains, dt)
         self.pitch_controller = PIDController(pitch_gains, dt)
         self.sideslip_controller = PIDController(yaw_gains, dt)
 
-        self.sim_truth_state_history: list[SimTruthState] = []
+        self.reset()
 
-        cfg = trim_config
-        self.trim_angle_threshold_rad = np.deg2rad(cfg.trim_angle_threshold_deg)
-        self.max_d_body_rate_radps2 = np.deg2rad(cfg.max_d_body_rate_degps2)
+    def reset(self):
+        for controller in [
+            self.roll_controller,
+            self.pitch_controller,
+            self.sideslip_controller,
+        ]:
+            controller.reset()
+
+        self.sim_truth_state_history: list[SimTruthState] = []
+        self.trim_angle_threshold_rad = np.deg2rad(self.cfg.trim_angle_threshold_deg)
+        self.max_d_body_rate_radps2 = np.deg2rad(self.cfg.max_d_body_rate_degps2)
 
         self.in_trim_persistence_counter_s = 0.0
         self.in_trim_persistence_threshold_s = self.dt

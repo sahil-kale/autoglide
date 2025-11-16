@@ -98,7 +98,7 @@ class JSBSim_Sandbox:
         psi = self.fdm.get_property_value("attitude/psi-rad")  # yaw
 
         sensors = SimTruthState(
-            time_s=self.fdm.get_sim_time(),
+            time_s=self.get_sim_time_s(),
             airspeed_mps=units.knots_to_mps(self.fdm["velocities/vtrue-kts"]),
             altitude_m=units.feet_to_meters(self.fdm["position/h-sl-ft"]),
             latitude_deg=self.fdm["position/lat-gc-deg"],
@@ -112,6 +112,9 @@ class JSBSim_Sandbox:
             r_radps=self.fdm["velocities/r-rad_sec"],
         )
         return sensors
+
+    def get_sim_time_s(self) -> float:
+        return self.fdm.get_sim_time()
 
 
 if __name__ == "__main__":
