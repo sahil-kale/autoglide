@@ -7,34 +7,7 @@ from jsbsim_sandbox.sandbox_sim import (
     JSBSimSimParams,
 )
 from vehicle_interface.vehicle_interface import *
-
-
-class PIDGains:
-    def __init__(self, kp: float, ki: float, kd: float):
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
-
-
-class PIDController:
-    def __init__(self, gains: PIDGains, dt: float):
-        self.kp = gains.kp
-        self.ki = gains.ki
-        self.kd = gains.kd
-        self.dt = dt
-        self.integral_error = 0.0
-        self.prev_error = 0.0
-
-    def step(self, target: float, current: float) -> float:
-        error = target - current
-        self.integral_error += error * self.dt
-        derivative_error = (error - self.prev_error) / self.dt
-        self.prev_error = error
-
-        control_output = (
-            self.kp * error + self.ki * self.integral_error + self.kd * derivative_error
-        )
-        return control_output
+from utils.pid import PIDController, PIDConfig
 
 
 class GliderAttitudeTrimController:
@@ -42,9 +15,9 @@ class GliderAttitudeTrimController:
         self,
         sim: JSBSim_Sandbox,
         dt: float,
-        roll_gains: PIDGains,
-        pitch_gains: PIDGains,
-        yaw_gains: PIDGains,
+        roll_gains: PIDConfig,
+        pitch_gains: PIDConfig,
+        yaw_gains: PIDConfig,
     ):
         self.sim = sim
         self.dt = dt
@@ -213,9 +186,9 @@ if __name__ == "__main__":
 
     sim = JSBSim_Sandbox(initial_cond, sim_params, vehicle_config)
 
-    roll_gains = PIDGains(kp=10, ki=0.1, kd=0.00)
-    pitch_gains = PIDGains(kp=10, ki=0.1, kd=0.00)
-    yaw_gains = PIDGains(kp=10, ki=0.1, kd=0.00)
+    roll_gains = PIDConfig(kp=10, ki=0.1, kd=0.00)
+    pitch_gains = PIDConfig(kp=10, ki=0.1, kd=0.00)
+    yaw_gains = PIDConfig(kp=10, ki=0.1, kd=0.00)
 
     trim_controller = GliderAttitudeTrimController(
         sim,
