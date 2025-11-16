@@ -153,9 +153,7 @@ def animate_sim(
     ax_tas = fig.add_subplot(gs[1, 1])
     ax_rates = fig.add_subplot(gs[0, 2])
     ax_euler = fig.add_subplot(gs[1, 2])
-    fig.suptitle(
-        "Flight Playback Viewer", fontsize=14
-    )
+    fig.suptitle("Flight Playback Viewer", fontsize=14)
 
     # 3D track in (E, N, Alt)
     (track_full,) = ax3d.plot(E, N, alt, linewidth=1, alpha=0.3)
