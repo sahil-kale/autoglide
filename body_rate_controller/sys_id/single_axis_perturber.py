@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, auto
+import click
 import numpy as np
 
 
@@ -34,7 +35,12 @@ class SingleAxisPerturber:
     def step(self, current_time_s: float) -> float:
         if not self.active or self.current_event_index >= len(self.events):
             raise RuntimeError(
-                "Perturber is not active or all events have been completed."
+                click.secho(
+                    "Perturber is not active or all events have been completed.",
+                    fg="red",
+                    bold=True,
+                    err=True,
+                )
             )
 
         current_event = self.events[self.current_event_index]
@@ -59,7 +65,13 @@ class SingleAxisPerturber:
             ), "Random perturbation magnitude must be non-negative."
             return np.random.uniform(-current_event.magnitude, current_event.magnitude)
 
-        return 0.0
+        msg = click.secho(
+            f"Unknown perturber event type: {current_event.event_type}",
+            fg="red",
+            bold=True,
+            err=True,
+        )
+        raise RuntimeError(msg)
 
     def is_active(self) -> bool:
         return self.active

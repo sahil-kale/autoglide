@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+from enum import Enum, auto
 
 from body_rate_controller.sys_id.single_axis_perturber import (
     SingleAxisPerturberType,
@@ -126,4 +127,16 @@ def test_random_event_negative_magnitude_asserts():
     perturber.start(current_time_s=0.0)
 
     with pytest.raises(AssertionError):
+        perturber.step(current_time_s=0.1)
+
+
+def test_unknown_event_type_raises():
+    class FakePerturberType(Enum):
+        UNKNOWN = auto()
+
+    events = [SingleAxisPerturberEvent(FakePerturberType.UNKNOWN, 1.0, 1.0)]
+    perturber = SingleAxisPerturber(events)
+    perturber.start(current_time_s=0.0)
+
+    with pytest.raises(RuntimeError):
         perturber.step(current_time_s=0.1)
