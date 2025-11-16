@@ -222,9 +222,9 @@ We consider at least two representative trim conditions at a given airspeed:
 Once the aircraft is stabilized at the desired attitude, we log the steady-state control surface deflections ($\delta_{aileron, trim}$, $\delta_{elevator, trim}$, $\delta_{rudder, trim}$), as well as the corresponding trim body rates ($p_0$, $q_0$, $r_0$).
 
 ### Perturbation Input
-Once the aircraft is in a trimmed condition, we apply a series of perturbation inputs to excite the body angular rate dynamics. The perturbation input follows the following general form:
+Once the aircraft is in a trimmed condition, we apply a series of perturbation inputs per control surface to excite the body angular rate dynamics. The perturbation input follows the following general form:
 - Step Input: A step change in control surface deflection, exercising positive and negative deflection.
-- Random Binary Sequence (RBS): A pseudo-random sequence of control surface deflections, switching between positive and negative deflections at a specified frequency.
+- Random Binary Sequence (RBS): A pseudo-random sequence of control surface deflection, switching between positive and negative deflections at a specified frequency.
 
 For each trim condition, we record time histories of:
 - body rates $[p, q, r]$,
