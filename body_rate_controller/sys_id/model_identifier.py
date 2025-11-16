@@ -6,15 +6,7 @@ from body_rate_controller.sys_id.trim_controller import (
 )
 from jsbsim_sandbox.sandbox_sim import JSBSim_Sandbox
 from utils.pid import PIDConfig
-
-
-class SingleAxisStepPerturbationPhase(Enum):
-    """Enumeration of the different phases in the perturbation profile."""
-
-    ACTUATOR_INITIAL_STEP = auto()
-    ACTUATOR_HOLD_POSITIVE = auto()
-    ACTUATOR_HOLD_NEGATIVE = auto()
-    ACTUATOR_PERTURBATION_FINISHED = auto()
+import numpy as np
 
 
 class PerturbationPhase(Enum):
@@ -87,39 +79,81 @@ class Perturber:
         self.actuator_phase_transition_time = self.sim.get_sim_time_s()
         self.state = PerturbationPhase.INIT
         self.actuator_phase = SingleAxisStepPerturbationPhase.ACTUATOR_INITIAL_STEP
-        self.actuator_under_test: PerturbationActuators.AILERON
 
-    def step(self) -> None:
-        state_before_transition = self.state
-        match self.state:
-            case PerturbationPhase.INIT:
-                self.state = PerturbationPhase.SINGLE_AXIS_STEP_PERTURBATION
-                self.actuator_phase_transition_time = self.sim.get_sim_time_s()
-            case PerturbationPhase.SINGLE_AXIS_STEP_PERTURBATION:
-                if self.run_actuator_step_perturbation():
-                    self.state = PerturbationPhase.RANDOM_ALL_AXIS_PERTURBATION
-                    self.state_transition_time = self.sim.get_sim_time_s()
-            case PerturbationPhase.RANDOM_ALL_AXIS_PERTURBATION:
-                pass
-            case PerturbationPhase.PERTURBATION_FINISHED:
-                pass
 
-        if state_before_transition != self.state:
-            self.state_transition_time = self.sim.get_sim_time_s()
+if __name__ == "__main__":
+    from jsbsim_sandbox.sandbox_sim import (
+        JSBSimVehicleInitialCond,
+        JSBSimSimParams,
+        JSBSimVehicleConfig,
+    )
 
-    def run_actuator_step_perturbation(self) -> bool:
-        actuator_phase_before_transition = self.actuator_phase
-        match self.actuator_phase:
-            case SingleAxisStepPerturbationPhase.ACTUATOR_INITIAL_STEP:
-                pass
-            case SingleAxisStepPerturbationPhase.ACTUATOR_HOLD_POSITIVE:
-                pass
-            case SingleAxisStepPerturbationPhase.ACTUATOR_HOLD_NEGATIVE:
-                pass
-            case SingleAxisStepPerturbationPhase.ACTUATOR_PERTURBATION_FINISHED:
-                pass
+    initial_cond = JSBSimVehicleInitialCond(
+        h0_m=1000.0,
+        vt0_mps=30.0,
+        lat0_deg=0.0,
+        lon0_deg=0.0,
+        phi0_rad=0.0,
+        theta0_rad=0.0,
+        psi0_rad=0.0,
+    )
+    sim_params = JSBSimSimParams(dt_s=0.005)
+    vehicle_config = JSBSimVehicleConfig(
+        model_name="ask21",
+        root_dir="jsbsim_sandbox/",
+        aileron_multiplier=1.0,
+        elevator_multiplier=1.0,
+        rudder_multiplier=1.0,
+        spoiler_max_deflection=1.0,
+    )
 
-        if actuator_phase_before_transition != self.actuator_phase:
-            self.actuator_phase_transition_time = self.sim.get_sim_time_s()
+    sim = JSBSim_Sandbox(initial_cond, sim_params, vehicle_config)
+    roll_gains = PIDConfig(kp=10, ki=0.1, kd=0.00)
+    pitch_gains = PIDConfig(kp=10, ki=0.1, kd=0.00)
+    yaw_gains = PIDConfig(kp=10, ki=0.1, kd=0.00)
 
-        return False
+    trim_controller = GliderAttitudeTrimController(
+        sim,
+        dt=0.01,
+        roll_gains=roll_gains,
+        pitch_gains=pitch_gains,
+        yaw_gains=yaw_gains,
+        trim_config=TrimConfig(
+            trim_angle_threshold_deg=5.0,
+            max_d_body_rate_degps2=0.1,
+        ),
+    )
+
+    trim_controller.run_until_trim(
+        target_roll_rad=np.deg2rad(0),
+        target_pitch_rad=np.deg2rad(0),
+        target_sideslip_rad=np.deg2rad(0),
+    )
+
+    PerturbationConfig(
+        elevator_perturbation_magnitude=0.1,
+        aileron_perturbation_magnitude=0.1,
+        rudder_perturbation_magnitude=0.1,
+        perturbation_duration_hold_phase_s=2.0,
+        perturbation_duration_step_phase_s=2.0,
+        perturbation_duration_neutral_phase_s=2.0,
+        perturbation_duration_random_phase_s=3.0,
+        num_random_perturbation_cycles=3,
+    )
+    perturber = Perturber(
+        sim,
+        trim_controller,
+        PerturbationConfig(
+            elevator_perturbation_magnitude=0.1,
+            aileron_perturbation_magnitude=0.1,
+            rudder_perturbation_magnitude=0.1,
+            perturbation_duration_hold_phase_s=2.0,
+            perturbation_duration_step_phase_s=2.0,
+            perturbation_duration_neutral_phase_s=2.0,
+            perturbation_duration_random_phase_s=3.0,
+            num_random_perturbation_cycles=3,
+        ),
+    )
+
+    while perturber.state != PerturbationPhase.PERTURBATION_FINISHED:
+        perturber.step()

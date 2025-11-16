@@ -14,6 +14,14 @@ class ControlCommands:
     rudder_deflection_norm: float  # +ve = trailing edge left / yaw left (r > 0)
     spoiler_deflection: float  # ≥ 0 = spoilers deployed (symmetric lift dump)
 
+    def __str__(self):
+        return (
+            f"Aileron Deflection (norm): {self.aileron_deflection_norm:.4f}, "
+            f"Elevator Deflection (norm): {self.elevator_deflection_norm:.4f}, "
+            f"Rudder Deflection (norm): {self.rudder_deflection_norm:.4f}, "
+            f"Spoiler Deflection: {self.spoiler_deflection:.4f}"
+        )
+
 
 @dataclass
 class SimTruthState:
@@ -30,6 +38,10 @@ class SimTruthState:
     q_radps: float = 0.0  # pitch rate, +ve = pitch up (q > 0)
     r_radps: float = 0.0  # yaw rate, +ve = nose left / yaw left (r > 0)
 
+    control_commands: ControlCommands = field(
+        default_factory=lambda: ControlCommands(0.0, 0.0, 0.0, 0.0)
+    )
+
     def __str__(self):
         return (
             f"Time: {self.time_s:.2f} s, \n"
@@ -42,4 +54,5 @@ class SimTruthState:
             f"p: {np.degrees(self.p_radps):.2f} deg/s, \n"
             f"q: {np.degrees(self.q_radps):.2f} deg/s, \n"
             f"r: {np.degrees(self.r_radps):.2f} deg/s\n"
+            f"Control Commands: {self.control_commands}\n"
         )

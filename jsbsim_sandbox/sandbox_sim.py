@@ -68,6 +68,8 @@ class JSBSim_Sandbox:
         self.initial_cond = initial_cond
         self.vehicle_config = vehicle_config
 
+        self.sim_truth_state_history: list[SimTruthState] = []
+
     def _normalize_and_clip_axis(self, value: float, multiplier: float) -> float:
         norm_value = value * multiplier
         return np.clip(norm_value, -1.0, 1.0)
@@ -97,21 +99,21 @@ class JSBSim_Sandbox:
         theta = self.fdm.get_property_value("attitude/theta-rad")  # pitch
         psi = self.fdm.get_property_value("attitude/psi-rad")  # yaw
 
-        sensors = SimTruthState(
+        truth_state = SimTruthState(
             time_s=self.get_sim_time_s(),
             airspeed_mps=units.knots_to_mps(self.fdm["velocities/vtrue-kts"]),
             altitude_m=units.feet_to_meters(self.fdm["position/h-sl-ft"]),
             latitude_deg=self.fdm["position/lat-gc-deg"],
             longitude_deg=self.fdm["position/long-gc-deg"],
-            attitude=Quaternion.from_euler(
-                roll=phi, pitch=theta, yaw=psi
-            ).normalize(),  # TODO: Consider just being dependent on IMU measurements here instead. But we'll assume the attitude is already known since that problem is solved
+            attitude=Quaternion.from_euler(roll=phi, pitch=theta, yaw=psi).normalize(),
             sideslip_rad=self.fdm["aero/beta-rad"],
             p_radps=self.fdm["velocities/p-rad_sec"],
             q_radps=self.fdm["velocities/q-rad_sec"],
             r_radps=self.fdm["velocities/r-rad_sec"],
+            control_commands=control_commands,
         )
-        return sensors
+        self.sim_truth_state_history.append(truth_state)
+        return truth_state
 
     def get_sim_time_s(self) -> float:
         return self.fdm.get_sim_time()
