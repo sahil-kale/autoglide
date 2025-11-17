@@ -57,7 +57,7 @@ class BodyRateModelPerturber:
             SingleAxisPerturberEvent(
                 event_type=SingleAxisPerturberType.STEP,
                 magnitude=generic_axis_perturbation_magnitude,
-                duration_s=0.5,
+                duration_s=1.0,
             ),
         ]
 
@@ -70,13 +70,18 @@ class BodyRateModelPerturber:
             ),
             SingleAxisPerturberEvent(
                 event_type=SingleAxisPerturberType.STEP,
+                magnitude=0.0,
+                duration_s=0.25,
+            ),
+            SingleAxisPerturberEvent(
+                event_type=SingleAxisPerturberType.STEP,
                 magnitude=elevator_perturbation_magnitude,
                 duration_s=0.5,
             ),
             SingleAxisPerturberEvent(
                 event_type=SingleAxisPerturberType.STEP,
-                magnitude=generic_axis_perturbation_magnitude,
-                duration_s=0.25,
+                magnitude=elevator_perturbation_magnitude * 0.5,
+                duration_s=0.5,
             ),
         ]
 
