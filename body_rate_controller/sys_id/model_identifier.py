@@ -34,38 +34,54 @@ class BodyRateModelPerturber:
         self.trim = trim
         self.trim_target = trim_target
 
-        # Hardcoded profile for now. Can be made configurable later.
-        generic_axis_perturbation_magnitude = 0.1
-        self.generic_axis_perturbation_config = [
+        # Roll and Yaw use the same generic profile.
+        generic_axis_perturbation_magnitude = 0.4
+        self.roll_perturbation_config = [
             # +Step
             SingleAxisPerturberEvent(
                 event_type=SingleAxisPerturberType.STEP,
                 magnitude=generic_axis_perturbation_magnitude,
-                duration_s=0.25,
+                duration_s=0.5,
             ),
             SingleAxisPerturberEvent(
                 event_type=SingleAxisPerturberType.STEP,
                 magnitude=0.0,
-                duration_s=0.25,
+                duration_s=0.5,
             ),
             # -Step
             SingleAxisPerturberEvent(
                 event_type=SingleAxisPerturberType.STEP,
                 magnitude=-generic_axis_perturbation_magnitude,
+                duration_s=0.5,
+            ),
+            SingleAxisPerturberEvent(
+                event_type=SingleAxisPerturberType.STEP,
+                magnitude=generic_axis_perturbation_magnitude,
+                duration_s=0.5,
+            ),
+        ]
+
+        elevator_perturbation_magnitude = 0.4
+        self.pitch_perturbation_config = [
+            SingleAxisPerturberEvent(
+                event_type=SingleAxisPerturberType.STEP,
+                magnitude=-elevator_perturbation_magnitude,
                 duration_s=0.25,
             ),
             SingleAxisPerturberEvent(
                 event_type=SingleAxisPerturberType.STEP,
-                magnitude=0.0,
+                magnitude=elevator_perturbation_magnitude,
+                duration_s=0.5,
+            ),
+            SingleAxisPerturberEvent(
+                event_type=SingleAxisPerturberType.STEP,
+                magnitude=generic_axis_perturbation_magnitude,
                 duration_s=0.25,
             ),
-            # Random Binary/Uniform
-            # SingleAxisPerturberEvent(
-            #     event_type=SingleAxisPerturberType.RANDOM,
-            #     magnitude=generic_axis_perturbation_magnitude,
-            #     duration_s=2.0,
-            # )
         ]
+
+        # Yaw uses the same generic profile as roll.
+        self.yaw_perturbation_config = list(self.roll_perturbation_config)
 
     def run(self):
         for axis in BodyRateModelPerturberAxes:
@@ -95,7 +111,22 @@ class BodyRateModelPerturber:
     def _get_perturber_for_axis(
         self, axis: BodyRateModelPerturberAxes
     ) -> SingleAxisPerturber:
-        return SingleAxisPerturber(events=self.generic_axis_perturbation_config)
+        match axis:
+            case BodyRateModelPerturberAxes.ROLL:
+                return SingleAxisPerturber(events=self.roll_perturbation_config)
+            case BodyRateModelPerturberAxes.PITCH:
+                return SingleAxisPerturber(events=self.pitch_perturbation_config)
+            case BodyRateModelPerturberAxes.YAW:
+                return SingleAxisPerturber(events=self.yaw_perturbation_config)
+            case _:
+                raise ValueError(
+                    click.secho(
+                        f"Unknown perturber axis: {axis}",
+                        fg="red",
+                        bold=True,
+                        err=True,
+                    )
+                )
 
     def _get_control_command_from_perturbation(
         self, perturbation: float, axis: BodyRateModelPerturberAxes
