@@ -42,6 +42,8 @@ class SimTruthState:
         default_factory=lambda: ControlCommands(0.0, 0.0, 0.0, 0.0)
     )
 
+    aoa_rad: float = 0.0  # angle of attack, +ve = nose up (alpha > 0)
+
     def __str__(self):
         return (
             f"Time: {self.time_s:.2f} s, \n"

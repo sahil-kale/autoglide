@@ -111,6 +111,7 @@ class JSBSim_Sandbox:
             q_radps=self.fdm["velocities/q-rad_sec"],
             r_radps=self.fdm["velocities/r-rad_sec"],
             control_commands=control_commands,
+            aoa_rad=self.fdm["aero/alpha-rad"],
         )
         self.sim_truth_state_history.append(truth_state)
         return truth_state
