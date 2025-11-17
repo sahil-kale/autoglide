@@ -35,29 +35,43 @@ class BodyRateModelPerturber:
         self.trim_target = trim_target
 
         # Hardcoded profile for now. Can be made configurable later.
-        generic_axis_perturbation_magnitude = 0.4
+        generic_axis_perturbation_magnitude = 0.1
         self.generic_axis_perturbation_config = [
+            # +Step
             SingleAxisPerturberEvent(
                 event_type=SingleAxisPerturberType.STEP,
                 magnitude=generic_axis_perturbation_magnitude,
-                duration_s=2.0,
+                duration_s=0.25,
             ),
+            SingleAxisPerturberEvent(
+                event_type=SingleAxisPerturberType.STEP,
+                magnitude=0.0,
+                duration_s=0.25,
+            ),
+            # -Step
             SingleAxisPerturberEvent(
                 event_type=SingleAxisPerturberType.STEP,
                 magnitude=-generic_axis_perturbation_magnitude,
-                duration_s=4.0,
+                duration_s=0.25,
             ),
             SingleAxisPerturberEvent(
-                event_type=SingleAxisPerturberType.RANDOM,
-                magnitude=generic_axis_perturbation_magnitude,
-                duration_s=5.0,
+                event_type=SingleAxisPerturberType.STEP,
+                magnitude=0.0,
+                duration_s=0.25,
             ),
+            # Random Binary/Uniform
+            # SingleAxisPerturberEvent(
+            #     event_type=SingleAxisPerturberType.RANDOM,
+            #     magnitude=generic_axis_perturbation_magnitude,
+            #     duration_s=2.0,
+            # )
         ]
 
     def run(self):
         for axis in BodyRateModelPerturberAxes:
-            perturber = SingleAxisPerturber(
-                events=self.generic_axis_perturbation_config
+            perturber = self._get_perturber_for_axis(axis)
+            click.secho(
+                f"Starting perturbation sequence for axis: {axis.name}", fg="blue"
             )
             perturber.start(current_time_s=self.sim.get_sim_time_s())
 
@@ -78,15 +92,20 @@ class BodyRateModelPerturber:
             )
         click.secho("Completed all axis perturbation sequences.", fg="green", bold=True)
 
+    def _get_perturber_for_axis(
+        self, axis: BodyRateModelPerturberAxes
+    ) -> SingleAxisPerturber:
+        return SingleAxisPerturber(events=self.generic_axis_perturbation_config)
+
     def _get_control_command_from_perturbation(
         self, perturbation: float, axis: BodyRateModelPerturberAxes
     ) -> ControlCommands:
         control_commands = self.trim.sim_truth_state_history[-1].control_commands
         match axis:
-            case BodyRateModelPerturberAxes.ROLL:
-                control_commands.aileron_deflection_norm += perturbation
             case BodyRateModelPerturberAxes.PITCH:
                 control_commands.elevator_deflection_norm += perturbation
+            case BodyRateModelPerturberAxes.ROLL:
+                control_commands.aileron_deflection_norm += perturbation
             case BodyRateModelPerturberAxes.YAW:
                 control_commands.rudder_deflection_norm += perturbation
 
@@ -149,7 +168,7 @@ if __name__ == "__main__":
     )
 
     trim_target = TrimTarget(
-        roll_rad=np.deg2rad(60),
+        roll_rad=np.deg2rad(0),
         pitch_rad=np.deg2rad(0),
         sideslip_rad=np.deg2rad(0),
     )

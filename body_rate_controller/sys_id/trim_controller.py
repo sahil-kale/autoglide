@@ -196,6 +196,7 @@ class GliderAttitudeTrimController:
     ) -> str:
         roll_rad, pitch_rad, _ = truth_data.attitude.get_euler()
         return (
+            f"Time: {truth_data.time_s:.2f} s, "
             f"Attitude - Roll: {np.rad2deg(roll_rad):.2f} deg, "
             f"Pitch: {np.rad2deg(pitch_rad):.2f} deg, "
             f"Sideslip: {np.rad2deg(truth_data.sideslip_rad):.2f} deg\n"
