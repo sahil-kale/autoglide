@@ -20,6 +20,13 @@ class TrimConfig:
     trim_persistence_threshold_s: float
 
 
+@dataclass
+class TrimTarget:
+    roll_rad: float
+    pitch_rad: float
+    sideslip_rad: float
+
+
 class GliderAttitudeTrimController:
     def __init__(
         self,
@@ -56,18 +63,16 @@ class GliderAttitudeTrimController:
 
     def step_trim_to_attitude(
         self,
-        target_roll_rad: float,
-        target_pitch_rad: float,
-        target_sideslip_rad: float,
+        trim_target: TrimTarget,
         truth_data: SimTruthState,
     ) -> ControlCommands:
         roll_rad, pitch_rad, _ = truth_data.attitude.get_euler()
         current_sideslip_rad = truth_data.sideslip_rad
 
-        aileron_cmd = self.roll_controller.step(target_roll_rad, roll_rad)
-        elevator_cmd = -self.pitch_controller.step(target_pitch_rad, pitch_rad)
+        aileron_cmd = self.roll_controller.step(trim_target.roll_rad, roll_rad)
+        elevator_cmd = -self.pitch_controller.step(trim_target.pitch_rad, pitch_rad)
         rudder_cmd = self.sideslip_controller.step(
-            target_sideslip_rad, current_sideslip_rad
+            trim_target.sideslip_rad, current_sideslip_rad
         )
 
         self.sim_truth_state_history.append(truth_data)
@@ -81,16 +86,14 @@ class GliderAttitudeTrimController:
 
     def run_until_trim(
         self,
-        target_roll_rad: float,
-        target_pitch_rad: float,
-        target_sideslip_rad: float = 0.0,
+        trim_target: TrimTarget,
         max_steps: int = 4000,
         raise_on_fail: bool = True,
     ) -> bool:
         click.secho(
-            f"Starting trim to Roll: {np.rad2deg(target_roll_rad):.2f} deg, "
-            f"Pitch: {np.rad2deg(target_pitch_rad):.2f} deg, "
-            f"Sideslip: {np.rad2deg(target_sideslip_rad):.2f} deg",
+            f"Starting trim to Roll: {np.rad2deg(trim_target.roll_rad):.2f} deg, "
+            f"Pitch: {np.rad2deg(trim_target.pitch_rad):.2f} deg, "
+            f"Sideslip: {np.rad2deg(trim_target.sideslip_rad):.2f} deg",
             fg="blue",
         )
 
@@ -102,9 +105,7 @@ class GliderAttitudeTrimController:
             truth_data = self.sim.step(control_commands)
 
             control_commands = self.step_trim_to_attitude(
-                target_roll_rad=target_roll_rad,
-                target_pitch_rad=target_pitch_rad,
-                target_sideslip_rad=target_sideslip_rad,
+                trim_target=trim_target,
                 truth_data=truth_data,
             )
 
@@ -117,9 +118,7 @@ class GliderAttitudeTrimController:
 
                 if self._update_trim_persistence(
                     truth_data,
-                    target_roll_rad=target_roll_rad,
-                    target_pitch_rad=target_pitch_rad,
-                    target_sideslip_rad=target_sideslip_rad,
+                    trim_target=trim_target,
                     d_body_rates_radps2=d_body_rates_radps2,
                 ):
                     self._log_trim_success(truth_data, d_body_rates_radps2, step)
@@ -169,17 +168,15 @@ class GliderAttitudeTrimController:
     def _update_trim_persistence(
         self,
         truth_data: SimTruthState,
-        target_roll_rad: float,
-        target_pitch_rad: float,
-        target_sideslip_rad: float,
+        trim_target: TrimTarget,
         d_body_rates_radps2: np.ndarray,
     ) -> bool:
         accel_ok = np.all(d_body_rates_radps2 < self.max_d_body_rate_radps2)
         attitude_error = self._compute_attitude_error(
             truth_data,
-            target_roll_rad=target_roll_rad,
-            target_pitch_rad=target_pitch_rad,
-            target_sideslip_rad=target_sideslip_rad,
+            target_roll_rad=trim_target.roll_rad,
+            target_pitch_rad=trim_target.pitch_rad,
+            target_sideslip_rad=trim_target.sideslip_rad,
         )
         attitude_ok = np.all(attitude_error < self.trim_angle_threshold_rad)
 

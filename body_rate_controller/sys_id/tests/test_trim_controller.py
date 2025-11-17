@@ -1,6 +1,7 @@
 from body_rate_controller.sys_id.trim_controller import (
     GliderAttitudeTrimController,
     TrimConfig,
+    TrimTarget,
 )
 import numpy as np
 from jsbsim_sandbox.vehicle_state_visualizer import animate_sim
@@ -13,7 +14,7 @@ from jsbsim_sandbox.sandbox_sim import (
 from utils.pid import PIDConfig
 
 
-def sanity_test_trim_controller():
+def test_trim_controller_sanity():
     initial_cond = JSBSimVehicleInitialCond(
         h0_m=1000.0,
         vt0_mps=30.0,
@@ -53,14 +54,16 @@ def sanity_test_trim_controller():
     )
 
     assert trim_controller.run_until_trim(
-        target_roll_rad=np.deg2rad(60),
-        target_pitch_rad=np.deg2rad(0),
-        target_sideslip_rad=np.deg2rad(0),
+        trim_target=TrimTarget(
+            roll_rad=np.deg2rad(60),
+            pitch_rad=np.deg2rad(0),
+            sideslip_rad=np.deg2rad(0),
+        ),
     )
 
     # Ensure that the final state is within the trim thresholds
-    final_state = trim_controller.sim.get_sim_truth_state()
-    roll, pitch, yaw = final_state.attitude.to_euler_angles()
+    final_state = trim_controller.sim_truth_state_history[-1]
+    roll, pitch, yaw = final_state.attitude.get_euler()
     assert abs(roll - np.deg2rad(60)) <= np.deg2rad(5.0)
     assert abs(pitch - np.deg2rad(0)) <= np.deg2rad(5.0)
     assert abs(final_state.sideslip_rad - np.deg2rad(0)) <= np.deg2rad(5.0)
