@@ -4,6 +4,7 @@ from enum import Enum, auto
 from body_rate_controller.sys_id.trim_controller import (
     TrimConfig,
     GliderAttitudeTrimController,
+    TrimTarget,
 )
 from jsbsim_sandbox.sandbox_sim import JSBSim_Sandbox
 from utils.pid import PIDConfig
@@ -23,9 +24,15 @@ class BodyRateModelPerturberAxes(Enum):
 
 
 class BodyRateModelPerturber:
-    def __init__(self, sim: JSBSim_Sandbox, trim: GliderAttitudeTrimController):
+    def __init__(
+        self,
+        sim: JSBSim_Sandbox,
+        trim: GliderAttitudeTrimController,
+        trim_target: TrimTarget,
+    ):
         self.sim = sim
         self.trim = trim
+        self.trim_target = trim_target
 
         # Hardcoded profile for now. Can be made configurable later.
         generic_axis_perturbation_magnitude = 0.4
@@ -66,8 +73,9 @@ class BodyRateModelPerturber:
             )
 
             self.trim.reset()
-            self.trim.run_until_trimmed()
-
+            self.trim.run_until_trim(
+                trim_target=self.trim_target,
+            )
         click.secho("Completed all axis perturbation sequences.", fg="green", bold=True)
 
     def _get_control_command_from_perturbation(
@@ -91,6 +99,8 @@ class BodyRateModelPerturber:
                         err=True,
                     )
                 )
+
+        return control_commands
 
 
 if __name__ == "__main__":
@@ -138,13 +148,17 @@ if __name__ == "__main__":
         ),
     )
 
-    trim_controller.run_until_trim(
-        target_roll_rad=np.deg2rad(60),
-        target_pitch_rad=np.deg2rad(0),
-        target_sideslip_rad=np.deg2rad(0),
+    trim_target = TrimTarget(
+        roll_rad=np.deg2rad(60),
+        pitch_rad=np.deg2rad(0),
+        sideslip_rad=np.deg2rad(0),
     )
 
-    perturber = BodyRateModelPerturber(sim, trim_controller)
+    trim_controller.run_until_trim(
+        trim_target=trim_target,
+    )
+
+    perturber = BodyRateModelPerturber(sim, trim_controller, trim_target)
     perturber.run()
 
     from jsbsim_sandbox.vehicle_state_visualizer import animate_sim
