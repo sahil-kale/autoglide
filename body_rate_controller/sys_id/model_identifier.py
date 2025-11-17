@@ -213,9 +213,15 @@ if __name__ == "__main__":
         trim_target=trim_target,
     )
 
+    time_at_perturb_start_s = sim.get_sim_time_s()
+
     perturber = BodyRateModelPerturber(sim, trim_controller, trim_target)
     perturber.run()
 
+    history = sim.sim_truth_state_history
+    idx_of_perturb_start = time_at_perturb_start_s // sim_params.dt_s
+    history = history[int(idx_of_perturb_start) :]
+
     from jsbsim_sandbox.vehicle_state_visualizer import animate_sim
 
-    animate_sim(sim.sim_truth_state_history, interval_ms=0.005, frame_step=10)
+    animate_sim(history, interval_ms=0.005, frame_step=10)
