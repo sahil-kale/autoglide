@@ -17,6 +17,7 @@ from utils.pid import PIDController, PIDConfig
 class TrimConfig:
     trim_angle_threshold_deg: float
     max_d_body_rate_degps2: float
+    trim_persistence_threshold_s: float
 
 
 class GliderAttitudeTrimController:
@@ -49,9 +50,9 @@ class GliderAttitudeTrimController:
         self.sim_truth_state_history: list[SimTruthState] = []
         self.trim_angle_threshold_rad = np.deg2rad(self.cfg.trim_angle_threshold_deg)
         self.max_d_body_rate_radps2 = np.deg2rad(self.cfg.max_d_body_rate_degps2)
+        self.in_trim_persistence_threshold_s = self.cfg.trim_persistence_threshold_s
 
         self.in_trim_persistence_counter_s = 0.0
-        self.in_trim_persistence_threshold_s = self.dt
 
     def step_trim_to_attitude(
         self,
@@ -270,6 +271,7 @@ if __name__ == "__main__":
         trim_config=TrimConfig(
             trim_angle_threshold_deg=5.0,
             max_d_body_rate_degps2=0.1,
+            trim_persistence_threshold_s=0.1,
         ),
     )
 

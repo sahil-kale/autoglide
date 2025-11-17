@@ -48,6 +48,7 @@ def sanity_test_trim_controller():
         trim_config=TrimConfig(
             trim_angle_threshold_deg=5.0,
             max_d_body_rate_degps2=0.1,
+            trim_persistence_threshold_s=0.1,
         ),
     )
 
