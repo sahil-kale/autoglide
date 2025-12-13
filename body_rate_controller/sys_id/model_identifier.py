@@ -493,7 +493,7 @@ if __name__ == "__main__":
     )
 
     trim_target = TrimTarget(
-        roll_rad=np.deg2rad(30),
+        roll_rad=np.deg2rad(0),
         pitch_rad=np.deg2rad(-10),
         sideslip_rad=np.deg2rad(0),
     )

@@ -89,7 +89,7 @@ class BodyRateModelPerturber:
         self.yaw_perturbation_config = list(self.roll_perturbation_config)
 
     def run(self):
-        for axis in BodyRateModelPerturberAxes:
+        for axis in [BodyRateModelPerturberAxes.ROLL]:
             perturber = self._get_perturber_for_axis(axis)
             click.secho(
                 f"Starting perturbation sequence for axis: {axis.name}", fg="blue"
