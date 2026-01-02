@@ -273,10 +273,16 @@ if __name__ == "__main__":
         ),
     )
 
+    trim_target = TrimTarget(
+        roll_rad=np.deg2rad(60),
+        pitch_rad=np.deg2rad(0),
+        sideslip_rad=np.deg2rad(0),
+    )
+
     trim_controller.run_until_trim(
-        target_roll_rad=np.deg2rad(60),
-        target_pitch_rad=np.deg2rad(0),
-        target_sideslip_rad=np.deg2rad(0),
+        trim_target=trim_target,
+        max_steps=8000,
+        raise_on_fail=True,
     )
 
     animate_sim(

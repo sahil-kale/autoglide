@@ -36,15 +36,15 @@ class BodyRateModelIdentifier:
         self.sim_truth_state_history = sim_truth_state_history
 
         # Populated by identify_model()
-        self.A = None          # (5, 5)
-        self.B = None          # (5, 3)
-        self.c = None          # (5,)
-        self.Theta = None      # (9, 5) stacked [A^T; B^T; c^T]
+        self.A = None  # (5, 5)
+        self.B = None  # (5, 3)
+        self.c = None  # (5,)
+        self.Theta = None  # (9, 5) stacked [A^T; B^T; c^T]
         self.rank = None
         self.singular_values = None
         self.time_vector = None
         self._state_at_t0 = None
-        self.dt_id = None      # identification sample time
+        self.dt_id = None  # identification sample time
 
     def identify_model(self):
         """
@@ -61,7 +61,10 @@ class BodyRateModelIdentifier:
 
         and then use linear least squares on (x_k, delta_k) to fit A, B, c.
         """
-        click.secho("Starting model identification (accel-based, x=[p,q,r,alpha,beta])...", fg="blue")
+        click.secho(
+            "Starting model identification (accel-based, x=[p,q,r,alpha,beta])...",
+            fg="blue",
+        )
         state_at_t0 = self.sim_truth_state_history[0]
 
         time_vector = []
@@ -157,8 +160,8 @@ class BodyRateModelIdentifier:
         ).T
 
         # Use k = 0..N-2 for regression, with k+1 as next sample
-        x_k = x[:-1, :]          # (N-1, 5)
-        x_k1 = x[1:, :]          # (N-1, 5)
+        x_k = x[:-1, :]  # (N-1, 5)
+        x_k1 = x[1:, :]  # (N-1, 5)
         delta_k = delta[:-1, :]  # (N-1, 3)
         time_k = time_vector[:-1]
         time_k1 = time_vector[1:]
@@ -182,7 +185,7 @@ class BodyRateModelIdentifier:
         # Regression matrix Phi: [x_k, delta_k, 1]
         ones_col = np.ones((x_k.shape[0], 1))
         Phi = np.hstack((x_k, delta_k, ones_col))  # (N-1, 9)
-        D = dx                                     # (N-1, 5)
+        D = dx  # (N-1, 5)
 
         if Phi.shape[0] != D.shape[0]:
             msg = (
@@ -195,9 +198,9 @@ class BodyRateModelIdentifier:
         # Solve least squares: Phi * Theta ≈ D
         Theta, ls_residuals, rank, s = np.linalg.lstsq(Phi, D, rcond=None)
         # Theta: (9, 5) = [A^T; B^T; c^T]
-        A = Theta[0:5, :].T   # (5, 5)
-        B = Theta[5:8, :].T   # (5, 3)
-        c = Theta[8, :]       # (5,)
+        A = Theta[0:5, :].T  # (5, 5)
+        B = Theta[5:8, :].T  # (5, 3)
+        c = Theta[8, :]  # (5,)
 
         # Store identified quantities on the instance for later use
         self.A = A
@@ -221,8 +224,8 @@ class BodyRateModelIdentifier:
         click.secho(f"Identification dt (median): {dt_id:.6f} s", fg="green")
 
         # One-step debug: reconstruct x_{k+1} from x_k using model
-        D_hat = Phi @ Theta                     # (N-1, 5) = predicted dx
-        x_k1_hat = x_k + dt_id * D_hat          # use nominal dt
+        D_hat = Phi @ Theta  # (N-1, 5) = predicted dx
+        x_k1_hat = x_k + dt_id * D_hat  # use nominal dt
 
         residuals = x_k1 - x_k1_hat
         ss_res = np.sum(residuals**2, axis=0)
@@ -231,7 +234,9 @@ class BodyRateModelIdentifier:
             r_squared = 1 - (ss_res / ss_tot)
 
         labels = ["p", "q", "r", "alpha", "beta"]
-        click.secho("One-step R^2 per state (debug, reconstructed x_{k+1}):", fg="yellow")
+        click.secho(
+            "One-step R^2 per state (debug, reconstructed x_{k+1}):", fg="yellow"
+        )
         click.secho(
             ", ".join(f"{name}: {r_squared[i]:.4f}" for i, name in enumerate(labels)),
             fg="yellow",
@@ -266,7 +271,9 @@ class BodyRateModelIdentifier:
             raise RuntimeError("Model not identified yet. Call identify_model() first.")
 
         if self.dt_id is None:
-            raise RuntimeError("Identification dt is unknown. Run identify_model() first.")
+            raise RuntimeError(
+                "Identification dt is unknown. Run identify_model() first."
+            )
 
         state_at_t0 = sim_truth_state_history[0]
 
@@ -376,13 +383,22 @@ class BodyRateModelIdentifier:
                 return float("nan")
             return 1.0 - ss_res / ss_tot
 
-        labels_full = ["p (rad/s)", "q (rad/s)", "r (rad/s)", "alpha (rad)", "beta (rad)"]
+        labels_full = [
+            "p (rad/s)",
+            "q (rad/s)",
+            "r (rad/s)",
+            "alpha (rad)",
+            "beta (rad)",
+        ]
 
         # Compute metrics per channel over the *full* trajectory
         nrmse_vals = [nrmse(x_true_abs[:, i], x_hat_abs[:, i]) for i in range(5)]
         r2_vals = [r2_score(x_true_abs[:, i], x_hat_abs[:, i]) for i in range(5)]
 
-        click.secho("Multi-step rollout metrics (full trajectory, x=[p,q,r,alpha,beta]):", fg="cyan")
+        click.secho(
+            "Multi-step rollout metrics (full trajectory, x=[p,q,r,alpha,beta]):",
+            fg="cyan",
+        )
         for i, name in enumerate(["p", "q", "r", "alpha", "beta"]):
             click.secho(
                 f"{name:>6}  NRMSE: {nrmse_vals[i]:.4f},  R^2: {r2_vals[i]:.4f}",
