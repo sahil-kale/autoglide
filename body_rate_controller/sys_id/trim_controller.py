@@ -269,13 +269,13 @@ if __name__ == "__main__":
         trim_config=TrimConfig(
             trim_angle_threshold_deg=5.0,
             max_d_body_rate_degps2=0.1,
-            trim_persistence_threshold_s=0.1,
+            trim_persistence_threshold_s=0.5,
         ),
     )
 
     trim_target = TrimTarget(
-        roll_rad=np.deg2rad(60),
-        pitch_rad=np.deg2rad(0),
+        roll_rad=np.deg2rad(00),
+        pitch_rad=np.deg2rad(00),
         sideslip_rad=np.deg2rad(0),
     )
 
@@ -286,5 +286,5 @@ if __name__ == "__main__":
     )
 
     animate_sim(
-        trim_controller.sim_truth_state_history, interval_ms=0.005, frame_step=10
+        sim.sim_truth_state_history, interval_ms=0.005, frame_step=10
     )
