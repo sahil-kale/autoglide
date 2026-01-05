@@ -186,3 +186,27 @@ def test_unknown_event_type_raises():
 
     with pytest.raises(RuntimeError):
         perturber.step(current_time_s=0.1, dt_s=0.1)
+
+
+def test_chirp_event_generates_sine_wave():
+    events = [
+        SingleAxisPerturberEvent(
+            event_type=SingleAxisPerturberType.CHIRP,
+            event_data=SingleAxisPerturberChirpEvent(
+                duration_s=2.0,
+                magnitude=1.0,
+                frequency_map=(1.0, 2.0),
+            ),
+        )
+    ]
+    perturber = SingleAxisPerturber(events)
+    perturber.start(current_time_s=0.0)
+
+    # Simulate the chirp over time
+    outputs = []
+    for t in np.linspace(0, 2.0, num=10):
+        outputs.append(perturber.step(current_time_s=t, dt_s=0.2))
+
+    # Check that the outputs are within the expected range
+    assert all(-1.0 <= output <= 1.0 for output in outputs)
+    assert perturber.is_active() is False
