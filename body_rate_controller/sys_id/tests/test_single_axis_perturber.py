@@ -3,6 +3,9 @@ import numpy as np
 from enum import Enum, auto
 
 from body_rate_controller.sys_id.single_axis_perturber import (
+    SingleAxesPerturberStepEvent,
+    SingleAxisPerturberRandomEvent,
+    SingleAxisPerturberChirpEvent,
     SingleAxisPerturberType,
     SingleAxisPerturberEvent,
     SingleAxisPerturber,
@@ -10,17 +13,27 @@ from body_rate_controller.sys_id.single_axis_perturber import (
 
 
 def test_step_raises_if_not_active():
-    events = [SingleAxisPerturberEvent(SingleAxisPerturberType.STEP, 1.0, 1.0)]
+    events = [
+        SingleAxisPerturberEvent(
+            event_type=SingleAxisPerturberType.STEP,
+            event_data=SingleAxesPerturberStepEvent(duration_s=1.0, magnitude=1.0),
+        )
+    ]
     perturber = SingleAxisPerturber(events)
 
     with pytest.raises(RuntimeError):
-        perturber.step(current_time_s=0.0)
+        perturber.step(current_time_s=0.0, dt_s=0.1)
 
     assert perturber.is_active() is False
 
 
 def test_start_initializes_state():
-    events = [SingleAxisPerturberEvent(SingleAxisPerturberType.STEP, 1.0, 1.0)]
+    events = [
+        SingleAxisPerturberEvent(
+            event_type=SingleAxisPerturberType.STEP,
+            event_data=SingleAxesPerturberStepEvent(duration_s=1.0, magnitude=1.0),
+        )
+    ]
     perturber = SingleAxisPerturber(events)
 
     perturber.start(current_time_s=10.0)
@@ -31,62 +44,78 @@ def test_start_initializes_state():
 
 
 def test_step_event_constant_output_for_step_type():
-    events = [SingleAxisPerturberEvent(SingleAxisPerturberType.STEP, 2.5, 1.0)]
+    events = [
+        SingleAxisPerturberEvent(
+            event_type=SingleAxisPerturberType.STEP,
+            event_data=SingleAxesPerturberStepEvent(duration_s=1.0, magnitude=2.5),
+        )
+    ]
     perturber = SingleAxisPerturber(events)
 
     perturber.start(current_time_s=0.0)
 
     # During the event duration we should get constant magnitude
-    assert perturber.step(current_time_s=0.0) == pytest.approx(2.5)
-    assert perturber.step(current_time_s=0.5) == pytest.approx(2.5)
-    assert perturber.step(current_time_s=0.99) == pytest.approx(2.5)
+    assert perturber.step(current_time_s=0.0, dt_s=0.1) == pytest.approx(2.5)
+    assert perturber.step(current_time_s=0.5, dt_s=0.1) == pytest.approx(2.5)
+    assert perturber.step(current_time_s=0.99, dt_s=0.1) == pytest.approx(2.5)
 
 
 def test_step_event_becomes_inactive_after_duration():
-    events = [SingleAxisPerturberEvent(SingleAxisPerturberType.STEP, 1.0, 1.0)]
+    events = [
+        SingleAxisPerturberEvent(
+            event_type=SingleAxisPerturberType.STEP,
+            event_data=SingleAxesPerturberStepEvent(duration_s=1.0, magnitude=1.0),
+        )
+    ]
     perturber = SingleAxisPerturber(events)
 
     perturber.start(current_time_s=0.0)
 
     # Still active before duration is reached
-    _ = perturber.step(current_time_s=0.5)
+    _ = perturber.step(current_time_s=0.5, dt_s=0.1)
     assert perturber.is_active() is True
 
     # Once elapsed_time_s >= duration_s and this is the last event, it should deactivate
-    output = perturber.step(current_time_s=1.5)
+    output = perturber.step(current_time_s=1.5, dt_s=0.1)
     assert output == pytest.approx(0.0)
     assert perturber.is_active() is False
 
     # Further calls should raise
     with pytest.raises(RuntimeError):
-        perturber.step(current_time_s=2.0)
+        perturber.step(current_time_s=2.0, dt_s=0.1)
 
 
 def test_multiple_step_events_progression():
     events = [
-        SingleAxisPerturberEvent(SingleAxisPerturberType.STEP, 1.0, 1.0),
-        SingleAxisPerturberEvent(SingleAxisPerturberType.STEP, -0.5, 2.0),
+        SingleAxisPerturberEvent(
+            event_type=SingleAxisPerturberType.STEP,
+            event_data=SingleAxesPerturberStepEvent(duration_s=1.0, magnitude=1.0),
+        ),
+        SingleAxisPerturberEvent(
+            event_type=SingleAxisPerturberType.STEP,
+            event_data=SingleAxesPerturberStepEvent(duration_s=2.0, magnitude=-0.5),
+        ),
     ]
     perturber = SingleAxisPerturber(events)
     perturber.start(current_time_s=0.0)
 
     # First event
-    assert perturber.step(current_time_s=0.2) == pytest.approx(1.0)
+    assert perturber.step(current_time_s=0.2, dt_s=0.1) == pytest.approx(1.0)
     assert perturber.current_event_index == 0
 
     # Let time go well beyond the first duration, then call again.
     # This call will advance to the next event in the internal state.
-    _ = perturber.step(current_time_s=1.2)
+    _ = perturber.step(current_time_s=1.2, dt_s=0.1)
     # After that call, it should now have moved to the next event
     assert perturber.current_event_index == 1
     assert perturber.is_active() is True
 
     # Now we should see the second event's magnitude on subsequent steps
-    assert perturber.step(current_time_s=1.3) == pytest.approx(-0.5)
-    assert perturber.step(current_time_s=2.9) == pytest.approx(-0.5)
+    assert perturber.step(current_time_s=1.3, dt_s=0.1) == pytest.approx(-0.5)
+    assert perturber.step(current_time_s=2.9, dt_s=0.1) == pytest.approx(-0.5)
 
     # After the second event has expired, it should deactivate
-    output = perturber.step(current_time_s=3.5)
+    output = perturber.step(current_time_s=3.5, dt_s=0.1)
     assert output == pytest.approx(0.0)
     assert perturber.is_active() is False
 
@@ -105,11 +134,18 @@ def test_random_event_uses_uniform_distribution(monkeypatch):
     monkeypatch.setattr(np.random, "uniform", fake_uniform)
 
     magnitude = 3.0
-    events = [SingleAxisPerturberEvent(SingleAxisPerturberType.RANDOM, magnitude, 1.0)]
+    events = [
+        SingleAxisPerturberEvent(
+            event_type=SingleAxisPerturberType.RANDOM,
+            event_data=SingleAxisPerturberRandomEvent(
+                duration_s=1.0, magnitude=magnitude
+            ),
+        )
+    ]
     perturber = SingleAxisPerturber(events)
     perturber.start(current_time_s=0.0)
 
-    value = perturber.step(current_time_s=0.1)
+    value = perturber.step(current_time_s=0.1, dt_s=0.1)
 
     # Check that np.random.uniform was called with correct bounds
     assert calls["low"] == -magnitude
@@ -122,21 +158,31 @@ def test_random_event_uses_uniform_distribution(monkeypatch):
 
 
 def test_random_event_negative_magnitude_asserts():
-    events = [SingleAxisPerturberEvent(SingleAxisPerturberType.RANDOM, -1.0, 1.0)]
+    events = [
+        SingleAxisPerturberEvent(
+            event_type=SingleAxisPerturberType.RANDOM,
+            event_data=SingleAxisPerturberRandomEvent(duration_s=1.0, magnitude=-1.0),
+        )
+    ]
     perturber = SingleAxisPerturber(events)
     perturber.start(current_time_s=0.0)
 
     with pytest.raises(AssertionError):
-        perturber.step(current_time_s=0.1)
+        perturber.step(current_time_s=0.1, dt_s=0.1)
 
 
 def test_unknown_event_type_raises():
     class FakePerturberType(Enum):
         UNKNOWN = auto()
 
-    events = [SingleAxisPerturberEvent(FakePerturberType.UNKNOWN, 1.0, 1.0)]
+    events = [
+        SingleAxisPerturberEvent(
+            event_type=FakePerturberType.UNKNOWN,
+            event_data=SingleAxesPerturberStepEvent(duration_s=1.0, magnitude=1.0),
+        )
+    ]
     perturber = SingleAxisPerturber(events)
     perturber.start(current_time_s=0.0)
 
     with pytest.raises(RuntimeError):
-        perturber.step(current_time_s=0.1)
+        perturber.step(current_time_s=0.1, dt_s=0.1)

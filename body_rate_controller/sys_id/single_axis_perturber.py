@@ -69,17 +69,18 @@ class SingleAxisPerturber:
         current_event = self.events[self.current_event_index]
         elapsed_time_s = current_time_s - self.event_start_time_s
 
-        if elapsed_time_s >= current_event.duration_s:
+        if elapsed_time_s >= current_event.event_data.duration_s:
             # Move to the next event
             self.current_event_index += 1
             if self.current_event_index < len(self.events):
                 self.event_start_time_s = current_time_s
+                self.event_elapsed_time_s = 0.0
                 current_event = self.events[self.current_event_index]
             else:
                 self.active = False  # All events completed
                 return 0.0
-
-        self.event_elapsed_time_s = elapsed_time_s
+        else:
+            self.event_elapsed_time_s = elapsed_time_s
 
         return self.get_perturbation(current_event, dt_s)
 
@@ -89,31 +90,37 @@ class SingleAxisPerturber:
         # Apply perturbation based on event type
         if current_event.event_type == SingleAxisPerturberType.STEP:
             return current_event.event_data.magnitude
-        elif current_event.event_type == SingleAxisPerturberType.RANDOM:
+
+        if current_event.event_type == SingleAxisPerturberType.RANDOM:
             assert (
                 current_event.event_data.magnitude >= 0.0
             ), "Random perturbation magnitude must be non-negative."
             return np.random.uniform(
                 -current_event.event_data.magnitude, current_event.event_data.magnitude
             )
-        elif current_event.event_type == SingleAxisPerturberType.CHIRP:
+
+        if current_event.event_type == SingleAxisPerturberType.CHIRP:
+            if current_event.event_data.frequency_map is None:
+                raise RuntimeError(
+                    "Chirp event requires a frequency_map (start_freq, end_freq)."
+                )
             start_freq, end_freq = current_event.event_data.frequency_map
             t = self.event_elapsed_time_s
             T = current_event.event_data.duration_s
-            freq_idx = t / T  # Normalized time index
+            freq_idx = t / T if T > 0 else 0.0  # Normalized time index
             instantaneous_freq = start_freq + (end_freq - start_freq) * freq_idx
             current_event.event_data.theta += 2 * np.pi * instantaneous_freq * dt_s
             return current_event.event_data.magnitude * np.sin(
                 current_event.event_data.theta
             )
-        else:
-            msg = click.secho(
-                f"Unknown perturber event type: {current_event.event_type}",
-                fg="red",
-                bold=True,
-                err=True,
-            )
-            raise RuntimeError(msg)
+
+        msg = click.secho(
+            f"Unknown perturber event type: {current_event.event_type}",
+            fg="red",
+            bold=True,
+            err=True,
+        )
+        raise RuntimeError(msg)
 
     def is_active(self) -> bool:
         return self.active
