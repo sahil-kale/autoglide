@@ -285,6 +285,4 @@ if __name__ == "__main__":
         raise_on_fail=True,
     )
 
-    animate_sim(
-        sim.sim_truth_state_history, interval_ms=0.005, frame_step=10
-    )
+    animate_sim(sim.sim_truth_state_history, interval_ms=0.005, frame_step=10)
