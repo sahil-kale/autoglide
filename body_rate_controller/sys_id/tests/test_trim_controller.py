@@ -50,6 +50,7 @@ def test_trim_controller_sanity():
             trim_angle_threshold_deg=5.0,
             max_d_body_rate_degps2=0.1,
             trim_persistence_threshold_s=0.1,
+            max_rate_of_change_airspeed_mps2=0.5,
         ),
     )
 

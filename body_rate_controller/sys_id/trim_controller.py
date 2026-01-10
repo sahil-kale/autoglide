@@ -18,6 +18,7 @@ class TrimConfig:
     trim_angle_threshold_deg: float
     max_d_body_rate_degps2: float
     trim_persistence_threshold_s: float
+    max_rate_of_change_airspeed_mps2: float
 
 
 @dataclass
@@ -58,8 +59,10 @@ class GliderAttitudeTrimController:
         self.trim_angle_threshold_rad = np.deg2rad(self.cfg.trim_angle_threshold_deg)
         self.max_d_body_rate_radps2 = np.deg2rad(self.cfg.max_d_body_rate_degps2)
         self.in_trim_persistence_threshold_s = self.cfg.trim_persistence_threshold_s
-
         self.in_trim_persistence_counter_s = 0.0
+
+        self.previous_body_rates: np.ndarray = np.zeros(3)
+        self.previous_airspeed_mps: float = 0.0
 
     def step_trim_to_attitude(
         self,
@@ -98,7 +101,6 @@ class GliderAttitudeTrimController:
         )
 
         control_commands = ControlCommands(0.0, 0.0, 0.0, 0.0)
-        previous_body_rates: Optional[np.ndarray] = None
         d_body_rates_radps2 = np.zeros(3)
 
         for step in range(max_steps):
@@ -111,20 +113,40 @@ class GliderAttitudeTrimController:
 
             body_rates = self._compute_body_rates(truth_data)
 
-            if previous_body_rates is not None:
-                d_body_rates_radps2 = self._compute_body_rate_derivative(
-                    body_rates, previous_body_rates
+            d_body_rates_radps2 = self._compute_body_rate_derivative(
+                body_rates, self.previous_body_rates
+            )
+
+            d_airspeed_mps2 = self._compute_airspeed_derivative(
+                truth_data.airspeed_mps,
+                self.previous_airspeed_mps,
+            )
+
+            airspeed_within_limit = (
+                np.abs(d_airspeed_mps2) <= self.cfg.max_rate_of_change_airspeed_mps2
+            )
+            attitude_error = self._compute_attitude_error(
+                truth_data,
+                target_roll_rad=trim_target.roll_rad,
+                target_pitch_rad=trim_target.pitch_rad,
+                target_sideslip_rad=trim_target.sideslip_rad,
+            )
+            attitude_within_limit = np.all(
+                np.abs(attitude_error) < self.trim_angle_threshold_rad
+            )
+
+            accel_ok = np.all(np.abs(d_body_rates_radps2) < self.max_d_body_rate_radps2)
+
+            if self._update_trim_persistence(
+                conditional=(
+                    attitude_within_limit and accel_ok and airspeed_within_limit
                 )
+            ):
+                self._log_trim_success(truth_data, d_body_rates_radps2, step)
+                return True
 
-                if self._update_trim_persistence(
-                    truth_data,
-                    trim_target=trim_target,
-                    d_body_rates_radps2=d_body_rates_radps2,
-                ):
-                    self._log_trim_success(truth_data, d_body_rates_radps2, step)
-                    return True
-
-            previous_body_rates = body_rates
+            self.previous_body_rates = body_rates
+            self.previous_airspeed_mps = truth_data.airspeed_mps
 
         self._log_trim_failure(truth_data, d_body_rates_radps2)
 
@@ -132,6 +154,13 @@ class GliderAttitudeTrimController:
             raise RuntimeError("Failed to achieve trim.")
 
         return False
+
+    def _compute_airspeed_derivative(
+        self,
+        airspeed_mps: float,
+        previous_airspeed_mps: float,
+    ) -> float:
+        return (airspeed_mps - previous_airspeed_mps) / self.dt
 
     def _compute_body_rates(self, truth_data: SimTruthState) -> np.ndarray:
         return np.array(
@@ -158,29 +187,17 @@ class GliderAttitudeTrimController:
 
         return np.array(
             [
-                np.abs(target_roll_rad - roll_rad),
-                np.abs(target_pitch_rad - pitch_rad),
-                np.abs(target_sideslip_rad - sideslip_rad),
+                target_roll_rad - roll_rad,
+                target_pitch_rad - pitch_rad,
+                target_sideslip_rad - sideslip_rad,
             ],
             dtype=float,
         )
 
-    def _update_trim_persistence(
-        self,
-        truth_data: SimTruthState,
-        trim_target: TrimTarget,
-        d_body_rates_radps2: np.ndarray,
-    ) -> bool:
-        accel_ok = np.all(d_body_rates_radps2 < self.max_d_body_rate_radps2)
-        attitude_error = self._compute_attitude_error(
-            truth_data,
-            target_roll_rad=trim_target.roll_rad,
-            target_pitch_rad=trim_target.pitch_rad,
-            target_sideslip_rad=trim_target.sideslip_rad,
-        )
-        attitude_ok = np.all(attitude_error < self.trim_angle_threshold_rad)
-
-        if accel_ok and attitude_ok:
+    def _update_trim_persistence(self, conditional: bool) -> bool:
+        if conditional and (
+            self.in_trim_persistence_counter_s < self.in_trim_persistence_threshold_s
+        ):
             self.in_trim_persistence_counter_s += self.dt
         else:
             self.in_trim_persistence_counter_s = 0.0
@@ -206,7 +223,8 @@ class GliderAttitudeTrimController:
             f"Body rate changes - "
             f"dp/dt: {np.rad2deg(d_body_rates_radps2[0]):.2f} deg/s², "
             f"dq/dt: {np.rad2deg(d_body_rates_radps2[1]):.2f} deg/s², "
-            f"dr/dt: {np.rad2deg(d_body_rates_radps2[2]):.2f} deg/s²"
+            f"dr/dt: {np.rad2deg(d_body_rates_radps2[2]):.2f} deg/s², "
+            f"dAirspeed/dt: {self._compute_airspeed_derivative(truth_data.airspeed_mps, self.previous_airspeed_mps):.4f} m/s²"
         )
 
     def _log_trim_success(
@@ -237,7 +255,7 @@ if __name__ == "__main__":
 
     initial_cond = JSBSimVehicleInitialCond(
         h0_m=1000.0,
-        vt0_mps=30.0,
+        vt0_mps=35.0,
         lat0_deg=0.0,
         lon0_deg=0.0,
         phi0_rad=0.0,
@@ -267,9 +285,10 @@ if __name__ == "__main__":
         pitch_gains=pitch_gains,
         yaw_gains=yaw_gains,
         trim_config=TrimConfig(
-            trim_angle_threshold_deg=5.0,
+            trim_angle_threshold_deg=1.0,
             max_d_body_rate_degps2=0.1,
             trim_persistence_threshold_s=0.5,
+            max_rate_of_change_airspeed_mps2=0.001,
         ),
     )
 
@@ -281,7 +300,7 @@ if __name__ == "__main__":
 
     trim_controller.run_until_trim(
         trim_target=trim_target,
-        max_steps=8000,
+        max_steps=10000,
         raise_on_fail=True,
     )
 

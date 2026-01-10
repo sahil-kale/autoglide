@@ -143,8 +143,8 @@ if __name__ == "__main__":
 
     # Initialize the simulation environment
     initial_cond = JSBSimVehicleInitialCond(
-        h0_m=1000.0,
-        vt0_mps=30.0,
+        h0_m=2000.0,
+        vt0_mps=37.0,
         lat0_deg=0.0,
         lon0_deg=0.0,
         phi0_rad=0.0,
@@ -175,9 +175,10 @@ if __name__ == "__main__":
         pitch_gains=pitch_gains,
         yaw_gains=yaw_gains,
         trim_config=TrimConfig(
-            trim_angle_threshold_deg=5.0,
+            trim_angle_threshold_deg=1.0,
             max_d_body_rate_degps2=0.1,
-            trim_persistence_threshold_s=0.5,
+            trim_persistence_threshold_s=2.0,
+            max_rate_of_change_airspeed_mps2=0.5,
         ),
     )
 
@@ -198,9 +199,9 @@ if __name__ == "__main__":
     chirp_event = SingleAxisPerturberEvent(
         event_type=SingleAxisPerturberType.CHIRP,
         event_data=SingleAxisPerturberChirpEvent(
-            duration_s=100.0,
-            magnitude=1.0,
-            frequency_map=(0.1, 2.0),
+            duration_s=30.0,
+            magnitude=0.2,
+            frequency_map=(0.1, 30.0),
         ),
     )
 
@@ -215,15 +216,14 @@ if __name__ == "__main__":
         )
 
         # Apply perturbation to the aileron as an example
-        control_commands.elevator_deflection_norm = perturbation
+        control_commands.elevator_deflection_norm = (
+            perturbation
+            + trim_controller.sim_truth_state_history[
+                -1
+            ].control_commands.elevator_deflection_norm
+        )
 
         truth_data = sim.step(control_commands)
-
-        # Log the simulation state
-        print(
-            f"Time: {sim.get_sim_time_s():.2f}s, Perturbation: {perturbation:.3f}, "
-            f"Roll: {np.rad2deg(truth_data.attitude.get_euler()[0]):.2f} deg"
-        )
 
     from jsbsim_sandbox.vehicle_state_visualizer import animate_sim
 
