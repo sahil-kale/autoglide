@@ -199,14 +199,14 @@ if __name__ == "__main__":
     chirp_event = SingleAxisPerturberEvent(
         event_type=SingleAxisPerturberType.CHIRP,
         event_data=SingleAxisPerturberChirpEvent(
-            duration_s=30.0,
-            magnitude=0.2,
-            frequency_map=(0.1, 30.0),
+            duration_s=50.0,
+            magnitude=1.0,
+            frequency_map=(1.0, 10.0),
         ),
     )
 
     perturber = SingleAxisPerturber(events=[chirp_event])
-    perturber.start(current_time_s=0.0)
+    perturber.start(current_time_s=sim.get_sim_time_s())
 
     # Apply the chirp perturbation
     control_commands = ControlCommands(0.0, 0.0, 0.0, 0.0)
