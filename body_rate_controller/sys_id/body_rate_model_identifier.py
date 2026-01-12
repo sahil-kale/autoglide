@@ -170,28 +170,97 @@ def get_bode(data: SingleAxisModelIdentificationData, dt_s: float, nperseg: int 
 
     return f, mag_db, phase_deg, coh
 
-def plot_bode_with_coherence(freq_hz, mag_db, phase_deg, coh, title="Bode"):
+def plot_bode_with_coherence(
+    freq_hz: np.ndarray,
+    mag_db: np.ndarray,
+    phase_deg: np.ndarray,
+    coh: np.ndarray,
+    title: str = "Bode",
+    fmin_hz: float | None = None,
+    fmax_hz: float | None = None,
+    coh_min: float | None = None,
+):
+    """
+    Plot Bode magnitude/phase + coherence, optionally restricting to a frequency band and/or a minimum coherence.
+
+    Args:
+        freq_hz: frequency vector (Hz), shape (N,)
+        mag_db: magnitude (dB), shape (N,)
+        phase_deg: phase (deg), shape (N,)
+        coh: coherence, shape (N,) or (M, N)
+        title: plot title
+        fmin_hz/fmax_hz: frequency bounds to plot (inclusive). If None, no bound on that side.
+        coh_min: if provided, additionally mask out points with coherence < coh_min.
+    """
+    import numpy as np
     import matplotlib.pyplot as plt
 
-    plt.figure(figsize=(10, 8))
+    f = np.asarray(freq_hz).squeeze()
+    mag = np.asarray(mag_db).squeeze()
+    ph = np.asarray(phase_deg).squeeze()
 
-    plt.subplot(2, 1, 1)
-    plt.semilogx(freq_hz, mag_db)
-    plt.title(title)
-    plt.ylabel("Magnitude (dB)")
-    plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+    # Coherence may come back as (M, N) depending on input shapes; handle both.
+    coh_arr = np.asarray(coh)
+    if coh_arr.ndim == 2:
+        # Plot each row, but masking is based on the max coherence across rows by default.
+        coh_for_mask = np.max(coh_arr, axis=0)
+    else:
+        coh_for_mask = coh_arr.squeeze()
 
-    plt.subplot(2, 1, 2)
-    plt.semilogx(freq_hz, phase_deg)
-    plt.ylabel("Phase (deg)")
-    plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+    if f.ndim != 1 or mag.ndim != 1 or ph.ndim != 1:
+        raise ValueError(f"freq/mag/phase must be 1D. Got f{f.shape}, mag{mag.shape}, ph{ph.shape}")
 
-    # plt.subplot(3, 1, 3)
-    # plt.semilogx(freq_hz, coh)
-    # plt.ylim([0, 1.05])
-    # plt.ylabel("Coherence")
-    # plt.xlabel("Frequency (Hz)")
-    # plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+    if coh_for_mask.ndim != 1:
+        raise ValueError(f"coh must be 1D or 2D. Got coh{coh_arr.shape}")
+
+    # Build mask for "frequencies of interest"
+    mask = np.ones_like(f, dtype=bool)
+    if fmin_hz is not None:
+        mask &= (f >= fmin_hz)
+    if fmax_hz is not None:
+        mask &= (f <= fmax_hz)
+    if coh_min is not None:
+        mask &= (coh_for_mask >= coh_min)
+
+    # Apply mask
+    f_m = f[mask]
+    mag_m = mag[mask]
+    ph_m = ph[mask]
+
+    # Coherence masked
+    if coh_arr.ndim == 2:
+        coh_m = coh_arr[:, mask]
+    else:
+        coh_m = coh_for_mask[mask]
+
+    if f_m.size == 0:
+        raise ValueError("No points left after applying fmin/fmax/coh_min mask.")
+
+    plt.figure(figsize=(10, 9))
+
+    ax1 = plt.subplot(3, 1, 1)
+    ax1.semilogx(f_m, mag_m)
+    ax1.set_title(title)
+    ax1.set_ylabel("Magnitude (dB)")
+    ax1.grid(True, which="both", linestyle="--", linewidth=0.5)
+
+    ax2 = plt.subplot(3, 1, 2, sharex=ax1)
+    ax2.semilogx(f_m, ph_m)
+    ax2.set_ylabel("Phase (deg)")
+    ax2.grid(True, which="both", linestyle="--", linewidth=0.5)
+
+    ax3 = plt.subplot(3, 1, 3, sharex=ax1)
+    if isinstance(coh_m, np.ndarray) and coh_m.ndim == 2:
+        for i in range(coh_m.shape[0]):
+            ax3.semilogx(f_m, coh_m[i], label=f"coh[{i}]")
+        ax3.legend(loc="best")
+    else:
+        ax3.semilogx(f_m, coh_m)
+
+    ax3.set_ylim([0.0, 1.05])
+    ax3.set_ylabel("Coherence")
+    ax3.set_xlabel("Frequency (Hz)")
+    ax3.grid(True, which="both", linestyle="--", linewidth=0.5)
 
     plt.tight_layout()
     plt.show()
@@ -223,5 +292,13 @@ if __name__ == "__main__":
         dt_s=0.01,
         nperseg=4096,
     )
-    plot_bode_with_coherence(freq_hz, mag, phase, coh, title="Elevator Perturbation - Bode Plot with Coherence")
-    
+    plot_bode_with_coherence(
+        freq_hz,
+        mag,
+        phase,
+        coh,
+        title="Elevator Perturbation - Bode Plot with Coherence",
+        fmin_hz=0.8,
+        fmax_hz=10.0,
+        coh_min=0.6,  # optional but recommended
+    )
