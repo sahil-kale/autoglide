@@ -18,6 +18,9 @@ from body_rate_controller.sys_id.single_axis_perturber import (
     SingleAxisPerturberEvent,
     SingleAxisPerturberType,
 )
+from dataclasses import dataclass
+import numpy as np
+import matplotlib.pyplot as plt
 
 def perturb_elevator():
     # Initialize the simulation environment
@@ -110,33 +113,115 @@ def perturb_elevator():
     # return the truth data from the perturbation time -> time now
     return perturbation_truth_data
     
+@dataclass
+class SingleAxisModelIdentificationData:
+    time_s: np.ndarray[float]
+    input_deflection_norm: np.ndarray[float]
+    output_response_radps: np.ndarray[float]
     
-def plot_time_domain_chirp_data(perturbation_truth_data):
+    def plot(self, title: str = "Single Axis Model Identification Data"):
+        # Plot the input and output data
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+        fig.suptitle(title)
+        ax1.plot(self.time_s, self.input_deflection_norm, label="Input Deflection Norm")
+        ax1.set_ylabel("Deflection Norm")
+        ax1.legend()
+        
+        ax2.plot(self.time_s, self.output_response_radps, label="Output Response (rad/s)", color='orange')
+        ax2.set_xlabel("Time (s)")
+        ax2.set_ylabel("Output Response (rad/s)")
+        ax2.legend()
+        
+        plt.tight_layout()
+        plt.show()
+
+    
+    
+def get_bode(data: SingleAxisModelIdentificationData, dt_s: float, nperseg: int = 4096):
+    """
+    Estimate frequency response G(jw) from input u and output y using spectral estimation:
+        G = S_yu / S_uu
+
+    Returns:
+        freq_hz, mag_db, phase_deg, coh
+    """
+    import numpy as np
+    from scipy.signal import csd, welch, coherence, detrend
+
+    u = np.asarray(data.input_deflection_norm)
+    y = np.asarray(data.output_response_radps)
+
+    # basic hygiene
+    u = detrend(u, type="constant")
+    y = detrend(y, type="constant")
+
+    fs = 1.0 / dt_s
+
+    # Use same windowing/segmenting for all estimates
+    f, Puu = welch(u, fs=fs, nperseg=min(nperseg, len(u)), window="hann", detrend=False)
+    _, Pyu = csd(y, u, fs=fs, nperseg=min(nperseg, len(u)), window="hann", detrend=False)
+    coh = coherence(y, u, fs=fs, nperseg=min(nperseg, len(u)), window="hann", detrend=False)
+
+    # FRF estimate
+    G = Pyu / Puu
+
+    mag_db = 20.0 * np.log10(np.maximum(np.abs(G), 1e-12))
+    phase_deg = np.angle(G, deg=True)
+
+    return f, mag_db, phase_deg, coh
+
+def plot_bode_with_coherence(freq_hz, mag_db, phase_deg, coh, title="Bode"):
     import matplotlib.pyplot as plt
 
-    times = [data.time_s for data in perturbation_truth_data]
-    elevator_deflections = [
-        data.control_commands.elevator_deflection_norm for data in perturbation_truth_data
-    ]
-    body_rates_q = [data.q_radps for data in perturbation_truth_data]
-    
-    assert len(times) == len(elevator_deflections) == len(body_rates_q), f"Lengths do not match: {len(times)}, {len(elevator_deflections)}, {len(body_rates_q)}"
-    
-    # Overlay plots of elevator deflection and body rate q (different y-axes)
-    fig, ax1 = plt.subplots()
-    ax1.set_xlabel("Time (s)")
-    ax1.set_ylabel("Elevator Deflection (norm)", color="tab:blue")
-    ax1.plot(times, elevator_deflections, color="tab:blue", label="Elevator Deflection")
-    ax1.tick_params(axis="y", labelcolor="tab:blue")
-    ax2 = ax1.twinx()
-    ax2.set_ylabel("Body Rate q (rad/s)", color="tab:red")
-    ax2.plot(times, body_rates_q, color="tab:red", label="Body Rate q")
-    ax2.tick_params(axis="y", labelcolor="tab:red")
-    fig.tight_layout()
-    plt.title("Elevator Deflection and Body Rate q over Time")
+    plt.figure(figsize=(10, 8))
+
+    plt.subplot(2, 1, 1)
+    plt.semilogx(freq_hz, mag_db)
+    plt.title(title)
+    plt.ylabel("Magnitude (dB)")
+    plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+
+    plt.subplot(2, 1, 2)
+    plt.semilogx(freq_hz, phase_deg)
+    plt.ylabel("Phase (deg)")
+    plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+
+    # plt.subplot(3, 1, 3)
+    # plt.semilogx(freq_hz, coh)
+    # plt.ylim([0, 1.05])
+    # plt.ylabel("Coherence")
+    # plt.xlabel("Frequency (Hz)")
+    # plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+
+    plt.tight_layout()
     plt.show()
+
 
 if __name__ == "__main__":
     elevator_perturbation_truth_data = perturb_elevator()
-    plot_time_domain_chirp_data(elevator_perturbation_truth_data)
+    identification_data = SingleAxisModelIdentificationData(
+        time_s=np.array([
+            data_point.time_s for data_point in elevator_perturbation_truth_data
+        ]),
+        input_deflection_norm=np.array([
+            data_point.control_commands.elevator_deflection_norm
+            for data_point in elevator_perturbation_truth_data
+        ]),
+        output_response_radps=np.array([
+            data_point.q_radps
+            for data_point in elevator_perturbation_truth_data
+        ]),
+    )
+    identification_data.plot(
+        title="Elevator Perturbation - Raw Data"
+    )
+    
+    print(f"Generating bode plot from {len(identification_data.time_s)} data points.")
+    
+    freq_hz, mag, phase, coh = get_bode(
+        identification_data,
+        dt_s=0.01,
+        nperseg=4096,
+    )
+    plot_bode_with_coherence(freq_hz, mag, phase, coh, title="Elevator Perturbation - Bode Plot with Coherence")
     
