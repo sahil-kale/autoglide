@@ -82,8 +82,9 @@ def perturb_elevator():
         event_type=SingleAxisPerturberType.CHIRP,
         event_data=SingleAxisPerturberChirpEvent(
             duration_s=50.0,
-            magnitude=1.0,
-            frequency_map=(1.0, 10.0),
+            magnitude=0.9,
+            frequency_map=(0.4, 10.0),
+            theta=np.pi / 2,  # Start at peak (90 degrees phase shift), since it excites less low freq mode
         ),
     )
 

@@ -110,7 +110,7 @@ class SingleAxisPerturber:
             freq_idx = t / T if T > 0 else 0.0  # Normalized time index
             instantaneous_freq = start_freq + (end_freq - start_freq) * freq_idx
             current_event.event_data.theta += 2 * np.pi * instantaneous_freq * dt_s
-            return current_event.event_data.magnitude * np.cos(
+            return current_event.event_data.magnitude * np.sin(
                 current_event.event_data.theta
             )
 
