@@ -41,3 +41,7 @@ This is a side project for the sake of learning and fun. It is not intended to b
 
 ## Intuition
 Over this project I kept finding that intuition played a huge role in how the control and estimation came together. Circling in lift, picking a radius that balances sink rate with updraft strength, and realizing it really needs an online optimization all matched the “gut feel” I already had from flying. It was rewarding to see the physics-based glider and thermal models interact in a way that felt realistic — and even more satisfying, the controller often makes the same choices I do in the cockpit: flying slow, tight circles right on the edge of stall to maximize climb.
+
+## Reuse
+This repository may be copied, modified, and used to create derivative works for non-commercial purposes only, provided clear attribution to the original repository and author is maintained.
+Such attribution must not imply endorsement, collaboration, or ongoing involvement by the original author.
